@@ -11,17 +11,24 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      groups:
-        - app_store_credentials
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.tema.temaMarket
       vars:
-        BUNDLE_ID: "com.tema.san"
+        BUNDLE_ID: "com.tema.temaMarket"
     scripts:
       - name: Flutter bağımlılıklarını yükle
         script: |
           flutter packages pub get
-      - name: iOS IPA Paketini Oluştur
+      - name: iOS Imzalama Profillerini Hazırla
         script: |
-          flutter build ipa --release --build-name=1.0.0 --build-number=${BUILD_NUMBER:-1}
+          xcode-project use-profiles
+      - name: iOS IPA Arşivini Oluştur (Unsigned Build)
+        script: |
+          flutter build ipa --release --no-codesign --build-name=1.0.0 --build-number=${BUILD_NUMBER:-1}
+      - name: iOS Paketini İmzala ve IPA Üret (Code Sign IPA)
+        script: |
+          xcode-project build-ipa --workspace ios/Runner.xcworkspace --scheme Runner
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild.log
