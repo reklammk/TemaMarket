@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
 import 'services/notification_service.dart';
 import 'pages/splash_screen_page.dart';
 import 'pages/auth_page.dart';
@@ -10,8 +9,12 @@ import 'pages/admin_dashboard_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
-  await NotificationService().initNotification();
+  try {
+    await NotificationService().initNotification();
+  } catch (e) {
+    // Bildirim servisi başlatılamazsa uygulamayı çökertme
+    debugPrint('Notification init error: $e');
+  }
   runApp(const TemasanApp());
 }
 
