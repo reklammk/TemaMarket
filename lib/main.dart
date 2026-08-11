@@ -19,7 +19,7 @@ void main() async {
 }
 
 class TemasanApp extends StatefulWidget {
-  const TemasanApp({Key? key}) : super(key: key);
+  const TemasanApp({super.key});
 
   @override
   State<TemasanApp> createState() => _TemasanAppState();
