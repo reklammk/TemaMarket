@@ -13,9 +13,9 @@ workflows:
       cocoapods: default
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.tema.temaMarket
+        bundle_identifier: com.tema.san
       vars:
-        BUNDLE_ID: "com.tema.temaMarket"
+        BUNDLE_ID: "com.tema.san"
     scripts:
       - name: Flutter bağımlılıklarını yükle
         script: |
