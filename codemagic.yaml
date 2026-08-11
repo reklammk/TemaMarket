@@ -1,7 +1,10 @@
 # Codemagic CI/CD Configuration for TEMA Market Mobile App
 workflows:
+  # -------------------------------------------------------------
+  # 🍎 1. iOS WORKFLOW (App Store & TestFlight -> .ipa)
+  # -------------------------------------------------------------
   ios-appstore:
-    name: TEMA Market iOS App Store Build & Deploy
+    name: TEMA Market iOS App Store Build (.ipa)
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
@@ -9,23 +12,19 @@ workflows:
       xcode: latest
       cocoapods: default
       groups:
-        - app_store_credentials # Codemagic Environment variables
+        - app_store_credentials
       vars:
         BUNDLE_ID: "com.tema.san"
     scripts:
       - name: Flutter bağımlılıklarını yükle
         script: |
           flutter packages pub get
-      - name: iOS Pods yükle
-        script: |
-          cd ios && pod install
       - name: iOS IPA Paketini Oluştur
         script: |
-          flutter build ipa --release --build-name=1.0.0 --build-number=$BUILD_NUMBER
+          flutter build ipa --release --build-name=1.0.0 --build-number=${BUILD_NUMBER:-1}
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild.log
-      - flutter_drive.log
     publishing:
       email:
         recipients:
@@ -39,3 +38,26 @@ workflows:
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
         submit_to_app_store: false
+
+  # -------------------------------------------------------------
+  # 🤖 2. ANDROID WORKFLOW (Google Play Store -> .aab)
+  # -------------------------------------------------------------
+  android-googleplay:
+    name: TEMA Market Android Google Play Build (.aab)
+    max_build_duration: 30
+    instance_type: linux
+    environment:
+      flutter: stable
+    scripts:
+      - name: Flutter bağımlılıklarını yükle
+        script: |
+          flutter packages pub get
+      - name: Android App Bundle (.aab) Oluştur
+        script: |
+          flutter build aab --release --build-name=1.0.0 --build-number=${BUILD_NUMBER:-1}
+    artifacts:
+      - build/app/outputs/bundle/release/*.aab
+    publishing:
+      email:
+        recipients:
+          - mehmetp835@gmail.com
