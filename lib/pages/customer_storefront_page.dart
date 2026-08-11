@@ -9,13 +9,13 @@ class CustomerStorefrontPage extends StatefulWidget {
   final VoidCallback? onLogout;
 
   const CustomerStorefrontPage({
-    Key? key,
+    super.key,
     this.user,
     this.onOpenAdmin,
     this.onOpenMerchant,
     this.onOpenCourier,
     this.onLogout,
-  }) : super(key: key);
+  });
 
   @override
   State<CustomerStorefrontPage> createState() => _CustomerStorefrontPageState();
@@ -35,11 +35,12 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     if (mounted) setState(() => _flags = flags);
   }
 
-  String _selectedBranch = 'Lalapaşa AVM (Yakutiye)';
-  String _selectedCategory = 'Tümü';
   final List<Map<String, dynamic>> _cart = [];
   int _currentTabIndex = 0;
+  String _selectedBranch = 'Lalapaşa AVM (Yakutiye)';
+  String _selectedCategory = 'Tümü';
   String _searchQuery = '';
+  // ignore: unused_field
   String _tcNo = '';
 
   // Kişiselleştirilmiş İndirim & Sadakat Tercihleri State
@@ -54,6 +55,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
 
   // TemaPuan Bakiye Değerleri
   final int _userPoints = 450;
+  // ignore: unused_element
   double get _userPointsTL => _userPoints * 0.10;
 
   final List<Map<String, String>> _branchDetails = [
@@ -198,20 +200,6 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     },
   ];
 
-  final List<Map<String, dynamic>> _campaigns = [
-    {
-      'title': 'İlk Siparişte Anında 100 TL İndirim!',
-      'code': 'TEMA100',
-      'desc': '300 TL ve üzeri siparişlerinizde geçerlidir.',
-      'color': const Color(0xFFDC2626),
-    },
-    {
-      'title': 'TEMA Kasap & Şarküteri %20 Fırsatı',
-      'code': 'KASAP20',
-      'desc': 'Kasap ve Şarküteri kategorisindeki tüm alışverişlerde geçerli.',
-      'color': const Color(0xFF991B1B),
-    },
-  ];
 
   double get _cartTotal => _cart.fold(0.0, (sum, item) => sum + (item['price'] * item['qty']));
 
@@ -907,7 +895,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -928,7 +916,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -975,7 +963,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -1169,7 +1157,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                 const Text('Ev Halkı Büyüklüğü:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
                 const SizedBox(height: 4),
                 DropdownButtonFormField<String>(
-                  value: _householdSize,
+                  initialValue: _householdSize,
                   decoration: const InputDecoration(
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     border: OutlineInputBorder(),
@@ -1188,14 +1176,14 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                 SwitchListTile(
                   title: const Text('Evde Bebek / Çocuk Var (Çocuk İndirimleri)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   value: _hasChildren,
-                  activeColor: const Color(0xFFDC2626),
+                  activeThumbColor: const Color(0xFFDC2626),
                   contentPadding: EdgeInsets.zero,
                   onChanged: (val) => setState(() => _hasChildren = val),
                 ),
                 SwitchListTile(
                   title: const Text('Evcil Hayvanım Var (Mama İndirimleri)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   value: _hasPets,
-                  activeColor: const Color(0xFFDC2626),
+                  activeThumbColor: const Color(0xFFDC2626),
                   contentPadding: EdgeInsets.zero,
                   onChanged: (val) => setState(() => _hasPets = val),
                 ),
@@ -1227,7 +1215,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                   title: const Text('Mobil Uygulama Push Bildirim İzni', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   subtitle: const Text('Anlık kampanya ve indirim haberleri', style: TextStyle(fontSize: 10)),
                   value: _pushConsent,
-                  activeColor: const Color(0xFF16A34A),
+                  activeThumbColor: const Color(0xFF16A34A),
                   contentPadding: EdgeInsets.zero,
                   onChanged: (val) => setState(() => _pushConsent = val),
                 ),
@@ -1235,14 +1223,14 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                   title: const Text('SMS İletişim Bildirim İzni', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   subtitle: const Text('Kupon ve sipariş durum bildirimleri', style: TextStyle(fontSize: 10)),
                   value: _smsConsent,
-                  activeColor: const Color(0xFF16A34A),
+                  activeThumbColor: const Color(0xFF16A34A),
                   contentPadding: EdgeInsets.zero,
                   onChanged: (val) => setState(() => _smsConsent = val),
                 ),
                 SwitchListTile(
                   title: const Text('KVKK Aydınlatma Metni & Veri İşleme İzni', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   value: _kvkkConsent,
-                  activeColor: const Color(0xFF16A34A),
+                  activeThumbColor: const Color(0xFF16A34A),
                   contentPadding: EdgeInsets.zero,
                   onChanged: (val) => setState(() => _kvkkConsent = val),
                 ),

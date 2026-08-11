@@ -4,7 +4,7 @@ class AuthPage extends StatefulWidget {
   final String defaultRole;
   final Function(Map<String, dynamic> user)? onLoginSuccess;
 
-  const AuthPage({Key? key, this.defaultRole = 'Customer', this.onLoginSuccess}) : super(key: key);
+  const AuthPage({super.key, this.defaultRole = 'Customer', this.onLoginSuccess});
 
   @override
   State<AuthPage> createState() => _AuthPageState();
@@ -98,7 +98,7 @@ class _AuthPageState extends State<AuthPage> {
                   child: Column(
                     children: [
                       DropdownButtonFormField<String>(
-                        value: _selectedRole,
+                        initialValue: _selectedRole,
                         decoration: const InputDecoration(
                           labelText: 'Giriş Yapılacak Rol',
                           border: OutlineInputBorder(),

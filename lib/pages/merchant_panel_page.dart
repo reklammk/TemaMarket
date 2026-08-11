@@ -240,11 +240,15 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            // ignore: deprecated_member_use
             children: _couriers.map((c) => RadioListTile<String>(
               title: Text(c, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
               value: c,
               groupValue: selected,
-              activeColor: const Color(0xFFDC2626),
+              fillColor: WidgetStateProperty.resolveWith<Color>((states) {
+                if (states.contains(WidgetState.selected)) return const Color(0xFFDC2626);
+                return Colors.grey;
+              }),
               contentPadding: EdgeInsets.zero,
               onChanged: (v) => setLocal(() => selected = v),
             )).toList(),

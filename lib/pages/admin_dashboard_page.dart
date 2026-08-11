@@ -4,7 +4,7 @@ class AdminDashboardPage extends StatefulWidget {
   final Map<String, dynamic>? user;
   final VoidCallback? onBackToStore;
 
-  const AdminDashboardPage({Key? key, this.user, this.onBackToStore}) : super(key: key);
+  const AdminDashboardPage({super.key, this.user, this.onBackToStore});
 
   @override
   State<AdminDashboardPage> createState() => _AdminDashboardPageState();
@@ -173,7 +173,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     ),
                   ),
                 );
-              }).toList(),
+              }),
             ] else ...[
               const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('Seçilen Yönetici Sekmesi Yükleniyor...'))),
             ],

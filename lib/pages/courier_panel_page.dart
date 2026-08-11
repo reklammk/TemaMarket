@@ -234,7 +234,7 @@ class _CourierPanelPageState extends State<CourierPanelPage>
                         color: _isOnline ? const Color(0xFF16A34A) : Colors.grey)),
                 Switch(
                   value: _isOnline,
-                  activeColor: const Color(0xFF16A34A),
+                  activeThumbColor: const Color(0xFF16A34A),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   onChanged: (v) => setState(() => _isOnline = v),
                 ),
@@ -251,7 +251,7 @@ class _CourierPanelPageState extends State<CourierPanelPage>
           labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
           tabs: [
             Tab(icon: const Icon(Icons.map_outlined, size: 18), text: 'Harita ($pending)'),
-            Tab(icon: const Icon(Icons.list_alt_outlined, size: 18), text: 'Teslimatlar'),
+            const Tab(icon: Icon(Icons.list_alt_outlined, size: 18), text: 'Teslimatlar'),
           ],
         ),
       ),

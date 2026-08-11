@@ -39,7 +39,7 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
-    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'temasan_orders_channel',
       'Temasan Sipariş Bildirimleri',
       channelDescription: 'Yeni sipariş ve kurye durum bildirim kanalı',
@@ -48,9 +48,9 @@ class NotificationService {
       showWhen: true,
     );
 
-    final NotificationDetails notificationDetails = NotificationDetails(
+    const NotificationDetails notificationDetails = NotificationDetails(
       android: androidDetails,
-      iOS: const DarwinNotificationDetails(),
+      iOS: DarwinNotificationDetails(),
     );
 
     await _notificationsPlugin.show(id, title, body, notificationDetails, payload: payload);

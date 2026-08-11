@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
@@ -14,7 +15,7 @@ class ApiService {
         }
       }
     } catch (e) {
-      print('API Error fetchProducts: $e');
+      debugPrint('API Error fetchProducts: $e');
     }
     return _fallbackProducts;
   }
@@ -29,7 +30,7 @@ class ApiService {
         }
       }
     } catch (e) {
-      print('API Error fetchCampaigns: $e');
+      debugPrint('API Error fetchCampaigns: $e');
     }
     return _fallbackCampaigns;
   }
