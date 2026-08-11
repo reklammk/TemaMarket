@@ -1,0 +1,41 @@
+# Codemagic CI/CD Configuration for TEMA Market Mobile App
+workflows:
+  ios-appstore:
+    name: TEMA Market iOS App Store Build & Deploy
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - app_store_credentials # Codemagic Environment variables
+      vars:
+        BUNDLE_ID: "com.tema.san"
+    scripts:
+      - name: Flutter bağımlılıklarını yükle
+        script: |
+          flutter packages pub get
+      - name: iOS Pods yükle
+        script: |
+          cd ios && pod install
+      - name: iOS IPA Paketini Oluştur
+        script: |
+          flutter build ipa --release --build-name=1.0.0 --build-number=$BUILD_NUMBER
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild.log
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients:
+          - mehmetp835@gmail.com
+        notify:
+          failure: true
+          success: true
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_ID
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+        submit_to_app_store: false
