@@ -9,12 +9,24 @@ import 'pages/admin_dashboard_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // iOS ve Android Global Çökme Önleyici (Global Error Handler)
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('Global Flutter Hatası Yakalandı: ${details.exception}');
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Platform Asenkron Hata Yakalandı: $error');
+    return true; // Uygulamanın çökmesini engelle
+  };
+
   try {
     await NotificationService().initNotification();
   } catch (e) {
-    // Bildirim servisi başlatılamazsa uygulamayı çökertme
     debugPrint('Notification init error: $e');
   }
+
   runApp(const TemasanApp());
 }
 

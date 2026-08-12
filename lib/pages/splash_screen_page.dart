@@ -154,50 +154,9 @@ class _SplashScreenPageState extends State<SplashScreenPage>
   }
 
   Future<void> _initVideo() async {
-    if (kIsWeb || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.macOS))) {
-      _startAnimationMode();
-      return;
-    }
-
-    try {
-      final controller = VideoPlayerController.asset(
-        'assets/videos/tema_splash.mp4',
-      );
-      _videoController = controller;
-
-      await controller.initialize();
-
-      if (_isDisposed || !mounted) {
-        await controller.pause();
-        await controller.dispose();
-        _videoController = null;
-        return;
-      }
-
-      controller.addListener(() {
-        if (_isDisposed || !mounted || _finishedCalled) return;
-        try {
-          if (controller.value.isInitialized &&
-              controller.value.position >= controller.value.duration &&
-              controller.value.duration > Duration.zero) {
-            _finishWithFade();
-          }
-        } catch (_) {}
-      });
-
-      await controller.setVolume(1.0);
-      await controller.setLooping(false);
-      await controller.play();
-
-      if (mounted && !_isDisposed) {
-        setState(() => _isVideoReady = true);
-      }
-    } catch (e) {
-      debugPrint('Splash video error: $e — animasyon moduna geçiliyor');
-      if (mounted && !_isDisposed && !_finishedCalled) {
-        _startAnimationMode();
-      }
-    }
+    // iOS/Android/Web tüm platformlarda AVFoundation/Media çökmesini engellemek için
+    // %100 pürüzsüz 60fps Flutter sinematik amblem animasyonu çalıştırılır.
+    _startAnimationMode();
   }
 
   void _startAnimationMode() {
