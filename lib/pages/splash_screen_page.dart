@@ -217,6 +217,13 @@ class _SplashScreenPageState extends State<SplashScreenPage>
   @override
   void dispose() {
     _isDisposed = true;
+    _particleController.stop();
+    _bgController.stop();
+    _logoController.stop();
+    _taglineController.stop();
+    _loadingController.stop();
+    _fadeOutController.stop();
+
     try {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     } catch (_) {}

@@ -124,7 +124,9 @@ class _AuthPageState extends State<AuthPage> {
                 final Map<String, dynamic> rawUser = res['user'] ?? res;
                 final Map<String, dynamic> user =
                     Map<String, dynamic>.from(rawUser);
-                user['role'] = _selectedRole;
+                if (user['role'] == null || user['role'].toString().isEmpty) {
+                  user['role'] = _selectedRole;
+                }
 
                 widget.onLoginSuccess?.call(user);
               } catch (e) {

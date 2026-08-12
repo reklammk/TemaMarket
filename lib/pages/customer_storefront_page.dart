@@ -812,7 +812,11 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     final catalogList = _liveProducts.isNotEmpty ? _liveProducts : _products;
     final filteredCatalog = catalogList.where((p) {
       if (_selectedCategory == 'İndirimli Ürünler') return (p['orig_price'] != null && p['orig_price'] > p['price']);
-      if (_selectedCategory != 'Tümü' && p['sub_brand'] != _selectedCategory) return false;
+      if (_selectedCategory != 'Tümü') {
+        final cleanCat = _selectedCategory.replaceAll('TEMA ', '').trim().toLowerCase();
+        final subBrand = (p['sub_brand'] ?? p['category'] ?? '').toString().toLowerCase();
+        if (!subBrand.contains(cleanCat) && !cleanCat.contains(subBrand)) return false;
+      }
       if (_searchQuery.trim().isNotEmpty) return p['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
       return true;
     }).toList();

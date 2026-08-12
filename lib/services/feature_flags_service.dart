@@ -15,7 +15,7 @@ class FeatureFlags {
   final bool serbestKurye;
 
   const FeatureFlags({
-    this.sanalMarket    = false,
+    this.sanalMarket    = true,
     this.bayiStok       = true,
     this.temapuan       = true,
     this.apiEntegrasyon = true,
@@ -29,7 +29,7 @@ class FeatureFlags {
 
   factory FeatureFlags.fromJson(Map<String, dynamic> json) {
     return FeatureFlags(
-      sanalMarket:    json['sanal_market']    ?? json['sanalMarket']    ?? false,
+      sanalMarket:    json['sanal_market']    ?? json['sanalMarket']    ?? true,
       bayiStok:       json['bayi_stok']       ?? json['bayiStok']       ?? true,
       temapuan:       json['temapuan']                                  ?? true,
       apiEntegrasyon: json['api_entegrasyon'] ?? json['apiEntegrasyon'] ?? true,
