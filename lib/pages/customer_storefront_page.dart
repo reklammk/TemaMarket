@@ -415,16 +415,17 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         height: 64,
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1015),
+          color: const Color(0xAA140A10), // Şeffaf / Yarı saydam (semi-transparent dark glass)
           borderRadius: BorderRadius.circular(100),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 24,
+              spreadRadius: 2,
+              offset: const Offset(0, 10),
             ),
           ],
-          border: Border.all(color: Colors.white.withOpacity(0.12), width: 1.5),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.5),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -472,9 +473,9 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                       ? Badge(
                           label: Text('${_cart.length}'),
                           backgroundColor: const Color(0xFFDC2626),
-                          child: Icon(icon, color: Colors.white.withOpacity(0.75), size: 22),
+                          child: Icon(icon, color: Colors.white.withValues(alpha: 0.85), size: 22),
                         )
-                      : Icon(icon, color: Colors.white.withOpacity(0.75), size: 22),
+                      : Icon(icon, color: Colors.white.withValues(alpha: 0.85), size: 22),
                 ),
               ),
             );
