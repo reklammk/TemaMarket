@@ -271,21 +271,21 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
       // 1. Canlı Şubeler
       final apiBranches = await ApiService.fetchBranches();
       if (apiBranches.isNotEmpty) {
-        _branches = apiBranches;
+        _branches = List<Map<String, dynamic>>.from(apiBranches);
       } else {
-        _branches = List.from(_defaultBranchesData);
+        _branches = List<Map<String, dynamic>>.from(_defaultBranchesData);
       }
 
       // 2. Canlı Ürünler
       final apiProducts = await ApiService.fetchProducts();
       if (apiProducts.isNotEmpty) {
-        _products = apiProducts;
+        _products = List<Map<String, dynamic>>.from(apiProducts);
       }
 
       // 3. Canlı Kampanyalar
       final apiCampaigns = await ApiService.fetchCampaigns();
       if (apiCampaigns.isNotEmpty) {
-        _campaigns = apiCampaigns;
+        _campaigns = List<Map<String, dynamic>>.from(apiCampaigns);
       }
 
       // 4. Canlı Feature Flags
