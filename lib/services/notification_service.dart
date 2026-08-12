@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
@@ -6,37 +7,51 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _notificationsPlugin =
+      FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
+  bool _initFailed = false;
 
   Future<void> initNotification() async {
-    if (_isInitialized) return;
+    if (_isInitialized || _initFailed) return;
+
     try {
+      // Android ayarları
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
 
-      const DarwinInitializationSettings initializationSettingsIOS = DarwinInitializationSettings(
+      // iOS ayarları — izinleri BURADA İSTEMEYİZ, sadece kanal kurarız
+      // İzin isteme işlemi uygulamanın ilerleyen akışında yapılmalı
+      const DarwinInitializationSettings initializationSettingsIOS =
+          DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,
         requestSoundPermission: false,
+        // iOS 26 / Xcode 17 uyumluluğu için defaultPresentAlert kapatıldı
+        defaultPresentAlert: false,
+        defaultPresentBadge: false,
+        defaultPresentSound: false,
       );
 
-      const InitializationSettings initializationSettings = InitializationSettings(
+      const InitializationSettings initializationSettings =
+          InitializationSettings(
         android: initializationSettingsAndroid,
         iOS: initializationSettingsIOS,
       );
 
-      await _notificationsPlugin.initialize(
+      final bool? result = await _notificationsPlugin.initialize(
         initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
           if (kDebugMode) {
-            print('Notification clicked: ${response.payload}');
+            debugPrint('Notification clicked: ${response.payload}');
           }
         },
       );
-      _isInitialized = true;
+
+      _isInitialized = result ?? false;
     } catch (e) {
-      debugPrint('NotificationService init exception: $e');
+      _initFailed = true;
+      debugPrint('NotificationService init exception (non-fatal): $e');
     }
   }
 
@@ -48,7 +63,8 @@ class NotificationService {
   }) async {
     if (!_isInitialized) return;
     try {
-      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      const AndroidNotificationDetails androidDetails =
+          AndroidNotificationDetails(
         'temasan_orders_channel',
         'Temasan Sipariş Bildirimleri',
         channelDescription: 'Yeni sipariş ve kurye durum bildirim kanalı',
@@ -62,9 +78,15 @@ class NotificationService {
         iOS: DarwinNotificationDetails(),
       );
 
-      await _notificationsPlugin.show(id, title, body, notificationDetails, payload: payload);
+      await _notificationsPlugin.show(
+        id,
+        title,
+        body,
+        notificationDetails,
+        payload: payload,
+      );
     } catch (e) {
-      debugPrint('showNotification error: $e');
+      debugPrint('showNotification error (non-fatal): $e');
     }
   }
 }

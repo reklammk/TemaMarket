@@ -40,12 +40,17 @@ class _TemasanAppState extends State<TemasanApp> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() async {
-      try {
-        await NotificationService().initNotification();
-      } catch (e) {
-        debugPrint('Notification init error: $e');
-      }
+    // iOS: Bildirimleri Flutter engine tam yüklendikten SONRA başlat.
+    // addPostFrameCallback, UIViewController viewDidLoad'dan sonra çalışır
+    // bu sayede flutter_local_notifications'ın erken init crash'i önlenir.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 500), () async {
+        try {
+          await NotificationService().initNotification();
+        } catch (e) {
+          debugPrint('Notification init error: $e');
+        }
+      });
     });
   }
 
