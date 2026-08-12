@@ -424,6 +424,39 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (!_flags.sanalMarket)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFFECDD3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: Color(0xFFDC2626), size: 24),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Sanal Market Sipariş Alımına Kapalıdır',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF991B1B)),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Ürünlerimiz sergilenmekte olup canlı sipariş alımı geçici olarak durdurulmuştur. Şubelerimizden alışveriş yapabilirsiniz.',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF991B1B)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
@@ -1360,8 +1393,11 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
-                  onPressed: _cart.isEmpty
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _flags.sanalMarket ? const Color(0xFFDC2626) : Colors.grey,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                  ),
+                  onPressed: (_cart.isEmpty || !_flags.sanalMarket)
                       ? null
                       : () {
                           Navigator.pop(context);
@@ -1369,7 +1405,12 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                             const SnackBar(content: Text('Siparişiniz alındı. E-faturanız kayıtlı iletişim numaranıza gönderilecektir.')),
                           );
                         },
-                  child: Text('Siparişi Tamamla (₺${_cartTotal.toStringAsFixed(2)})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    !_flags.sanalMarket
+                        ? 'Sanal Market Siparişe Kapalı'
+                        : 'Siparişi Tamamla (₺${_cartTotal.toStringAsFixed(2)})',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
