@@ -125,7 +125,7 @@ class _AuthPageState extends State<AuthPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Tutamaç çizgisi
+                      // Handle Bar
                       Container(
                         width: 40,
                         height: 4,
@@ -234,92 +234,160 @@ class _AuthPageState extends State<AuthPage> {
     );
   }
 
+  void _onNavTap(int index) {
+    if (index == 0 || index == 1 || index == 2 || index == 3) {
+      if (widget.onClose != null) {
+        widget.onClose!();
+      } else if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  Widget _buildFloatingNavbar(BuildContext context) {
+    final List<Map<String, dynamic>> navItems = [
+      {'id': 0, 'icon': Icons.home_rounded, 'label': 'Ana Sayfa'},
+      {'id': 1, 'icon': Icons.store_rounded, 'label': 'Şubeler'},
+      {'id': 2, 'icon': Icons.shopping_bag_outlined, 'label': 'Sepetim'},
+      {'id': 3, 'icon': Icons.auto_awesome_rounded, 'label': 'Sizin İçin'},
+      {'id': 4, 'icon': Icons.person_rounded, 'label': 'Hesabım'},
+    ];
+
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        height: 64,
+        decoration: BoxDecoration(
+          color: const Color(0xAA140A10),
+          borderRadius: BorderRadius.circular(100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 24,
+              spreadRadius: 2,
+              offset: const Offset(0, 10),
+            ),
+          ],
+          border:
+              Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: navItems.map((item) {
+            final int id = item['id'] as int;
+            final bool isSelected = id == 4; // Hesabım sayfasındayız
+            final IconData icon = item['icon'] as IconData;
+
+            if (isSelected) {
+              return GestureDetector(
+                onTap: () => _onNavTap(id),
+                child: Container(
+                  width: 46,
+                  height: 46,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.white24,
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Icon(
+                      icon,
+                      color: const Color(0xFFDC2626),
+                      size: 22,
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return GestureDetector(
+              onTap: () => _onNavTap(id),
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: Center(
+                  child: Icon(
+                    icon,
+                    color: Colors.white70,
+                    size: 22,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      // Uygulamanın Ana Ekranındaki Navbar & Logo Tasarımı
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              size: 18, color: Color(0xFF0F172A)),
-          onPressed: () {
-            if (widget.onClose != null) {
-              widget.onClose!();
-            } else if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            }
-          },
-        ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFDC2626),
-                borderRadius: BorderRadius.circular(100),
-              ),
-              child: const Text(
-                'TEMA',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              'TEMASAN SanalMarket & ERP',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 15,
-                color: Color(0xFFDC2626),
-                letterSpacing: -0.3,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: Center(
+      bottomNavigationBar: _buildFloatingNavbar(context),
+      body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDC2626),
-                  borderRadius: BorderRadius.circular(100),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFDC2626).withValues(alpha: 0.3),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
+              const SizedBox(height: 12),
+              // Görsel 1: TEMA Capsule Glow Badge + Red Market Text Logo
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 7),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF2A55), Color(0xFFDC2626)],
+                      ),
+                      borderRadius: BorderRadius.circular(100),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFDC2626).withValues(alpha: 0.45),
+                          blurRadius: 14,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: const Text('TEMA',
-                    style: TextStyle(
+                    child: const Text(
+                      'TEMA',
+                      style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
-                        fontSize: 26,
-                        letterSpacing: 1)),
+                        fontSize: 20,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Market',
+                    style: TextStyle(
+                      color: Color(0xFFDC2626),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 24,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               const Text('Hızlı ve Güvenli SMS Girişi',
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFF0F172A))),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               Card(
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24)),
