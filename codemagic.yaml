@@ -23,12 +23,46 @@ workflows:
       - name: iOS Imzalama Profillerini Hazırla
         script: |
           xcode-project use-profiles
-      - name: iOS IPA Arşivini Oluştur (Unsigned Build)
+      - name: İmzalı Release IPA Oluştur
         script: |
-          flutter build ipa --release --no-codesign --build-name=1.0.0 --build-number=${BUILD_NUMBER:-1}
-      - name: iOS Paketini İmzala ve IPA Üret (Code Sign IPA)
+          flutter build ipa --release \
+            --build-name=1.0.0 \
+            --build-number=${BUILD_NUMBER:-31} \
+            --export-options-plist=/Users/builder/export_options.plist
+      - name: Release IPA Modunu Doğrula
         script: |
-          xcode-project build-ipa --workspace ios/Runner.xcworkspace --scheme Runner
+          if ! grep -q '^FLUTTER_BUILD_MODE=release$' ios/Flutter/Generated.xcconfig; then
+            echo "HATA: Flutter build modu release değil."
+            exit 1
+          fi
+
+          IPA_PATH="$(find build/ios/ipa -maxdepth 1 -name '*.ipa' -print -quit)"
+          if [ -z "$IPA_PATH" ]; then
+            echo "HATA: Doğrulanacak IPA bulunamadı."
+            exit 1
+          fi
+
+          CHECK_DIR="$(mktemp -d)"
+          unzip -q "$IPA_PATH" -d "$CHECK_DIR"
+          APP_PATH="$(find "$CHECK_DIR/Payload" -maxdepth 1 -name '*.app' -print -quit)"
+          FLUTTER_BINARY="$APP_PATH/Frameworks/Flutter.framework/Flutter"
+
+          if [ -z "$APP_PATH" ] || [ ! -f "$FLUTTER_BINARY" ]; then
+            echo "HATA: IPA içindeki Flutter uygulaması doğrulanamadı."
+            exit 1
+          fi
+
+          if find "$APP_PATH" -name kernel_blob.bin -print -quit | grep -q .; then
+            echo "HATA: IPA debug Dart kernel'i içeriyor. TestFlight yüklemesi durduruldu."
+            exit 1
+          fi
+
+          if strings "$FLUTTER_BINARY" | grep -Fq 'debug mode Flutter apps can only be launched'; then
+            echo "HATA: IPA debug Flutter motoru içeriyor. TestFlight yüklemesi durduruldu."
+            exit 1
+          fi
+
+          echo "Release IPA doğrulaması başarılı."
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild.log
