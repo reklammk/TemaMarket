@@ -40,18 +40,6 @@ class _TemasanAppState extends State<TemasanApp> {
   @override
   void initState() {
     super.initState();
-    // iOS: Bildirimleri Flutter engine tam yüklendikten SONRA başlat.
-    // addPostFrameCallback, UIViewController viewDidLoad'dan sonra çalışır
-    // bu sayede flutter_local_notifications'ın erken init crash'i önlenir.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 500), () async {
-        try {
-          await NotificationService().initNotification();
-        } catch (e) {
-          debugPrint('Notification init error: $e');
-        }
-      });
-    });
   }
 
   void _handleLoginSuccess(Map<String, dynamic> user) {
@@ -69,11 +57,6 @@ class _TemasanAppState extends State<TemasanApp> {
       }
     });
 
-    NotificationService().showNotification(
-      id: 1,
-      title: '👋 Hoş Geldiniz!',
-      body: '${user['name']} olarak başarıyla giriş yapıldı.',
-    );
   }
 
   void _handleLogout() {
