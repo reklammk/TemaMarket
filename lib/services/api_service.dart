@@ -141,16 +141,25 @@ class ApiService {
 
   // 7. FEATURE FLAGS CANLI SENKRONİZASYON API
   static Future<Map<String, dynamic>?> fetchFeatureFlags() async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/feature-flags')).timeout(const Duration(seconds: 5));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true && data['flags'] != null) {
-          return data['flags'];
+    final List<String> endpoints = [
+      '$baseUrl/feature-flags',
+      'https://temasanalmarket.com/api/v1/feature-flags',
+      'http://127.0.0.1:8000/api/v1/feature-flags',
+      'http://10.0.2.2:8000/api/v1/feature-flags',
+    ];
+
+    for (final url in endpoints) {
+      try {
+        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 3));
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data['success'] == true && data['flags'] != null) {
+            return Map<String, dynamic>.from(data['flags']);
+          }
         }
+      } catch (e) {
+        debugPrint('API Error fetchFeatureFlags ($url): $e');
       }
-    } catch (e) {
-      debugPrint('API Error fetchFeatureFlags: $e');
     }
     return null;
   }
