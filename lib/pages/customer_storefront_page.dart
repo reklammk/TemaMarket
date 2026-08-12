@@ -985,14 +985,14 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                 const SizedBox(height: 14),
 
                 SizedBox(
-                  height: 210,
+                  height: 245,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: _discountedProducts.length,
                     itemBuilder: (context, index) {
                       final p = _discountedProducts[index];
                       return Container(
-                        width: 150,
+                        width: 160,
                         margin: const EdgeInsets.only(right: 12),
                         child: Card(
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1022,12 +1022,16 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                                 const SizedBox(height: 6),
                                 Text(p['name'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
                                 const Spacer(),
-                                Row(
-                                  children: [
-                                    Text('₺${p['price']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFFDC2626))),
-                                    const SizedBox(width: 4),
-                                    Text('₺${p['orig_price']}', style: const TextStyle(fontSize: 10, color: Colors.grey, decoration: TextDecoration.lineThrough)),
-                                  ],
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Row(
+                                    children: [
+                                      Text('₺${p['price']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFFDC2626))),
+                                      const SizedBox(width: 4),
+                                      Text('₺${p['orig_price']}', style: const TextStyle(fontSize: 10, color: Colors.grey, decoration: TextDecoration.lineThrough)),
+                                    ],
+                                  ),
                                 ),
                                 const SizedBox(height: 6),
                                 SizedBox(
@@ -1076,14 +1080,14 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 220,
+            height: 245,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: _popularProducts.length,
               itemBuilder: (context, index) {
                 final p = _popularProducts[index];
                 return Container(
-                  width: 155,
+                  width: 160,
                   margin: const EdgeInsets.only(right: 12),
                   child: Card(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -1113,12 +1117,16 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                           const SizedBox(height: 8),
                           Text(p['name'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
                           const Spacer(),
-                          Row(
-                            children: [
-                              Text('₺${p['price']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFFDC2626))),
-                              const SizedBox(width: 4),
-                              Text('₺${p['orig_price']}', style: const TextStyle(fontSize: 10, color: Colors.grey, decoration: TextDecoration.lineThrough)),
-                            ],
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              children: [
+                                Text('₺${p['price']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFFDC2626))),
+                                const SizedBox(width: 4),
+                                Text('₺${p['orig_price']}', style: const TextStyle(fontSize: 10, color: Colors.grey, decoration: TextDecoration.lineThrough)),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 6),
                           SizedBox(
@@ -1159,7 +1167,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.72,
+              childAspectRatio: 0.63,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),
@@ -1181,13 +1189,17 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                       const SizedBox(height: 8),
                       Text(p['name'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
                       const Spacer(),
-                      Row(
-                        children: [
-                          Text('₺${p['price']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFFDC2626))),
-                          const SizedBox(width: 4),
-                          if (p['orig_price'] != null)
-                            Text('₺${p['orig_price']}', style: const TextStyle(fontSize: 11, color: Colors.grey, decoration: TextDecoration.lineThrough)),
-                        ],
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          children: [
+                            Text('₺${p['price']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFFDC2626))),
+                            const SizedBox(width: 4),
+                            if (p['orig_price'] != null)
+                              Text('₺${p['orig_price']}', style: const TextStyle(fontSize: 11, color: Colors.grey, decoration: TextDecoration.lineThrough)),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 8),
                       SizedBox(
