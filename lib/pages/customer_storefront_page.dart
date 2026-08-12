@@ -386,32 +386,169 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         ],
       ),
       body: _buildCurrentTabBody(),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentTabIndex,
-        selectedItemColor: const Color(0xFFDC2626),
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        items: [
-          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Ana Sayfa'),
-          const BottomNavigationBarItem(icon: Icon(Icons.store), label: 'Şubeler'),
-          BottomNavigationBarItem(
-            icon: Badge(
-              isLabelVisible: _flags.sanalMarket && _cart.isNotEmpty,
-              label: Text('${_cart.length}'),
-              child: const Icon(Icons.shopping_bag),
+      bottomNavigationBar: _buildFloatingNavbar(context),
+    );
+  }
+
+  void _handleNavTap(int id) {
+    if (id == 2) {
+      _showNFCContactlessModal(context, widget.user?['phone'] ?? '05321002233');
+    } else if (id == 4) {
+      _showCustomerSupportDialog(context);
+    } else if (id == 5) {
+      _showEnlargedBarcodeModal(context, widget.user?['phone'] ?? '05321002233');
+    } else if (id == 6) {
+      _showCartBottomSheet(context);
+    } else {
+      setState(() {
+        _currentTabIndex = id;
+      });
+    }
+  }
+
+  void _showCustomerSupportDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Row(
+          children: [
+            Icon(Icons.chat_bubble, color: Color(0xFFDC2626)),
+            SizedBox(width: 8),
+            Text('TEMA Müşteri Hizmetleri', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('7/24 Canlı Destek & Çağrı Merkezimizle iletişime geçebilirsiniz.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12)),
+              child: const Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.phone, color: Color(0xFF16A34A), size: 18),
+                      SizedBox(width: 8),
+                      Text('0 (442) 234 11 22', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.email, color: Color(0xFFDC2626), size: 18),
+                      SizedBox(width: 8),
+                      Text('destek@temasan.com', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            label: 'Sepetim',
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Kapat')),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF16A34A)),
+            icon: const Icon(Icons.support_agent, color: Colors.white, size: 16),
+            label: const Text('WhatsApp Canlı Destek', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('WhatsApp destek hattı başlatılıyor...')),
+              );
+            },
           ),
-          const BottomNavigationBarItem(icon: Icon(Icons.auto_awesome), label: 'Sizin İçin'),
-          const BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Hesabım'),
         ],
-        onTap: (index) {
-          if (index == 2) {
-            _showCartBottomSheet(context);
-          } else {
-            setState(() => _currentTabIndex = index);
-          }
-        },
+      ),
+    );
+  }
+
+  Widget _buildFloatingNavbar(BuildContext context) {
+    final List<Map<String, dynamic>> navItems = [
+      {'id': 0, 'icon': Icons.grid_view_rounded, 'label': 'Ana Sayfa'},
+      {'id': 1, 'icon': Icons.calendar_today_outlined, 'label': 'Fırsatlar'},
+      {'id': 2, 'icon': Icons.contactless_outlined, 'label': 'TEMA NFC'},
+      {'id': 3, 'icon': Icons.person_outline_rounded, 'label': 'VIP Profil'},
+      {'id': 4, 'icon': Icons.chat_bubble_outline_rounded, 'label': 'Destek'},
+      {'id': 5, 'icon': Icons.qr_code_2_rounded, 'label': 'Dijital Kart'},
+      {'id': 6, 'icon': Icons.shopping_bag_outlined, 'label': 'Sepetim'},
+    ];
+
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        height: 64,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1015),
+          borderRadius: BorderRadius.circular(100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.35),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+          border: Border.all(color: Colors.white.withOpacity(0.12), width: 1.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: navItems.map((item) {
+            final int id = item['id'] as int;
+            final bool isSelected = _currentTabIndex == id;
+            final IconData icon = item['icon'] as IconData;
+
+            if (isSelected) {
+              return GestureDetector(
+                onTap: () => _handleNavTap(id),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.white24,
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Icon(
+                      icon,
+                      color: const Color(0xFFDC2626),
+                      size: 22,
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return GestureDetector(
+              onTap: () => _handleNavTap(id),
+              child: Container(
+                width: 40,
+                height: 40,
+                color: Colors.transparent,
+                child: Center(
+                  child: id == 6 && _flags.sanalMarket && _cart.isNotEmpty
+                      ? Badge(
+                          label: Text('${_cart.length}'),
+                          backgroundColor: const Color(0xFFDC2626),
+                          child: Icon(icon, color: Colors.white.withOpacity(0.75), size: 20),
+                        )
+                      : Icon(icon, color: Colors.white.withOpacity(0.75), size: 20),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -420,9 +557,9 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     switch (_currentTabIndex) {
       case 1:
         return _buildBranchesPage();
-      case 3:
+      case 2:
         return _buildForYouPage();
-      case 4:
+      case 3:
         return _buildAccountPage();
       case 0:
       default:
