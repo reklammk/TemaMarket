@@ -108,15 +108,16 @@ class _AuthPageState extends State<AuthPage> {
                     children: [
                       DropdownButtonFormField<String>(
                         initialValue: _selectedRole,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Giriş Yapılacak Rol',
                           border: OutlineInputBorder(),
                         ),
                         items: const [
-                          DropdownMenuItem(value: 'Customer', child: Text('🛒 Müşteri Hesabı')),
-                          DropdownMenuItem(value: 'Merchant', child: Text('🏢 Bayi / Şube Yöneticisi')),
-                          DropdownMenuItem(value: 'Courier', child: Text('🛵 Kurye Teslimat Personeli')),
-                          DropdownMenuItem(value: 'SuperAdmin', child: Text('👑 Genel Yönetici Konsolu')),
+                          DropdownMenuItem(value: 'Customer', child: Text('🛒 Müşteri Hesabı', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: 'Merchant', child: Text('🏢 Bayi / Şube Yöneticisi', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: 'Courier', child: Text('🛵 Kurye Teslimat Personeli', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: 'SuperAdmin', child: Text('👑 Genel Yönetici Konsolu', overflow: TextOverflow.ellipsis)),
                         ],
                         onChanged: (val) {
                           if (val != null) setState(() => _selectedRole = val);

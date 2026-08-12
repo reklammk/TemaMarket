@@ -468,11 +468,17 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
+        title: Row(
+          children: const [
             Icon(Icons.handshake, color: Color(0xFFDC2626)),
             SizedBox(width: 8),
-            Text('Bayimiz Olmak İster Misiniz?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Expanded(
+              child: Text(
+                'Bayimiz Olmak İster Misiniz?',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         content: const Text(
@@ -965,15 +971,17 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.local_offer, color: Color(0xFFDC2626), size: 20),
-                        SizedBox(width: 6),
-                        Text('🏷️ İndirimli Ürünler & Şube Fırsatları', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
-                      ],
+                    const Icon(Icons.local_offer, color: Color(0xFFDC2626), size: 20),
+                    const SizedBox(width: 6),
+                    const Expanded(
+                      child: Text(
+                        'İndirimli Ürünler & Fırsatlar',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    const SizedBox(width: 6),
                     InkWell(
                       onTap: () => setState(() => _selectedCategory = 'İndirimli Ürünler'),
                       child: const Text('Tüm Fırsatlar ➔', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
@@ -1313,9 +1321,15 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                 ),
                 const SizedBox(height: 12),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(p['name'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A))),
+                    Expanded(
+                      child: Text(
+                        p['name'],
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0F172A)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(8)),
