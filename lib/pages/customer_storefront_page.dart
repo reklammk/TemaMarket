@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/feature_flags_service.dart';
 
 class CustomerStorefrontPage extends StatefulWidget {
@@ -1046,49 +1047,210 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
           ),
           const SizedBox(height: 16),
 
-          // 💳 FİZİKİ & DİJİTAL TEMA VIP KART MOCKUP
+          // 💳 FİZİKİ & DİJİTAL TEMA VIP KART MOCKUP (Apple Wallet & Ultra Premium UI)
           Container(
-            padding: const EdgeInsets.all(20),
+            width: double.infinity,
+            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF0F172A), Color(0xFF1E293B)]),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, 6))],
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF0F172A),
+                  Color(0xFF1E1B4B),
+                  Color(0xFF450A0A),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: const Color(0xFFEAB308).withValues(alpha: 0.3), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // KART ÜST BAŞLIK & LOGO
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.credit_card, color: Color(0xFFEAB308), size: 24),
-                        SizedBox(width: 8),
-                        Text('TEMA VIP KART', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDC2626),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.shopping_basket, color: Colors.white, size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'TEMA VIP',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: const Color(0x33EAB308), borderRadius: BorderRadius.circular(6)),
-                      child: const Text('AKTİF KART', style: TextStyle(color: Color(0xFFFEF08A), fontWeight: FontWeight.bold, fontSize: 10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFFEAB308), Color(0xFFCA8A04)]),
+                        borderRadius: BorderRadius.circular(100),
+                        boxShadow: const [BoxShadow(color: Color(0x66EAB308), blurRadius: 8)],
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.stars, color: Colors.white, size: 12),
+                          SizedBox(width: 4),
+                          Text('VIP MEMBER', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10)),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                Text(userName.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1)),
-                const SizedBox(height: 4),
-                Text(userPhone, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                const SizedBox(height: 24),
+
+                // ÇİP & NFC SİMGE SİMGESİ
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // SIM ÇİP SİMÜLASYONU
+                    Container(
+                      width: 42,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFDE047),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFCA8A04), width: 1),
+                      ),
+                      child: Stack(
+                        children: [
+                          Positioned(top: 14, left: 0, right: 0, child: Container(height: 1, color: Colors.black26)),
+                          Positioned(left: 20, top: 0, bottom: 0, child: Container(width: 1, color: Colors.black26)),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.contactless, color: Color(0xFF94A3B8), size: 26),
+                  ],
+                ),
                 const SizedBox(height: 16),
+
+                // MÜŞTERİ ADI VE NUMARA
+                Text(
+                  userName.toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'ID: TEMA-${userPhone.replaceAll(RegExp(r'\D'), '')}',
+                  style: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // BARKOD & NFC BUTONLARI ALANI
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                  ),
                   child: Column(
                     children: [
-                      const Icon(Icons.qr_code_2, size: 50, color: Color(0xFF0F172A)),
-                      const SizedBox(height: 2),
-                      Text('Barkod No: ${userPhone.replaceAll(RegExp(r'\D'), '')}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                      const Text('Kasa işlemlerinde bu barkodu gösterebilirsiniz.', style: TextStyle(fontSize: 9, color: Colors.grey)),
+                      InkWell(
+                        onTap: () => _showEnlargedBarcodeModal(context, userPhone),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.qr_code_2, color: Color(0xFF0F172A), size: 24),
+                                    SizedBox(width: 6),
+                                    Text('Kasa Barkod / QR', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF0F172A))),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(6)),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.fullscreen, size: 14, color: Color(0xFFDC2626)),
+                                      SizedBox(width: 2),
+                                      Text('Büyüt', style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 10)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+
+                            // ÇİZGİ BARKOD ÖNİZLEMESİ
+                            Container(
+                              height: 38,
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: List.generate(30, (index) {
+                                  final width = (index % 3 == 0) ? 3.0 : ((index % 2 == 0) ? 1.8 : 1.0);
+                                  return Container(
+                                    width: width,
+                                    height: 35,
+                                    color: (index % 5 == 4) ? Colors.transparent : Colors.black,
+                                  );
+                                }),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '869${userPhone.replaceAll(RegExp(r'\D'), '')}',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2, color: Color(0xFF0F172A), fontFamily: 'monospace'),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              '🔍 Dokunarak Kasa Okuyucusu İçin Büyütün',
+                              style: TextStyle(fontSize: 10, color: Color(0xFFDC2626), fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 20),
+
+                      // APPLE PAY STİLİ TEMASSIZ NFC BUTONU
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.nfc, size: 18, color: Colors.white),
+                          label: const Text('📲 NFC ile Kasaya Okut (Apple Pay)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F172A),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          onPressed: () => _showNFCContactlessModal(context),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1494,6 +1656,298 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
           ),
         );
       },
+    );
+  }
+
+  void _showEnlargedBarcodeModal(BuildContext context, String rawNumber) {
+    final barcodeNo = '869${rawNumber.replaceAll(RegExp(r'\D'), '')}';
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.qr_code_scanner, color: Color(0xFFDC2626)),
+                        SizedBox(width: 8),
+                        Text('Kasa Taraması (Büyütülmüş)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(color: const Color(0xFFFECDD3)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.light_mode, size: 14, color: Color(0xFFDC2626)),
+                      SizedBox(width: 6),
+                      Text('Kasa Lazer Okuyucusu İçin Ekran Parlaklığı Artırıldı', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 16, offset: Offset(0, 4))],
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 180,
+                        height: 180,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.black, width: 3),
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const Icon(Icons.qr_code_2, size: 150, color: Color(0xFF0F172A)),
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(color: Color(0xFFDC2626), shape: BoxShape.circle),
+                              child: const Icon(Icons.shopping_basket, size: 18, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        height: 60,
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(35, (index) {
+                            final width = (index % 3 == 0) ? 4.0 : ((index % 2 == 0) ? 2.0 : 1.0);
+                            return Container(
+                              width: width,
+                              height: 55,
+                              color: (index % 5 == 4) ? Colors.transparent : Colors.black,
+                            );
+                          }),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        barcodeNo,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 3,
+                          fontFamily: 'monospace',
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: const Text('Barkod Numarasını Kopyala'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F172A),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                    minimumSize: const Size(double.infinity, 44),
+                  ),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: barcodeNo));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Barkod numarası panoya kopyalandı.')),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showNFCContactlessModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return _NFCAnimationSheet();
+      },
+    );
+  }
+}
+
+class _NFCAnimationSheet extends StatefulWidget {
+  @override
+  State<_NFCAnimationSheet> createState() => _NFCAnimationSheetState();
+}
+
+class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  bool _isSuccess = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+
+    Future.delayed(const Duration(milliseconds: 2400), () {
+      if (mounted) {
+        setState(() => _isSuccess = true);
+        _controller.stop();
+        HapticFeedback.heavyImpact();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F172A),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(100)),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.nfc, color: Color(0xFFEAB308), size: 28),
+              const SizedBox(width: 8),
+              Text(
+                _isSuccess ? 'TEMA VIP Kart Okutuldu!' : 'Temassız NFC Kasa İşlemi',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _isSuccess
+                ? 'VIP İndirimleriniz ve TemaPuanlarınız Kasaya İletildi ✓'
+                : 'Telefonunuzu Kasa POS Cihazına Yaklaştırın...',
+            style: TextStyle(
+              color: _isSuccess ? const Color(0xFF4ADE80) : const Color(0xFF94A3B8),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: 140,
+            height: 140,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (!_isSuccess)
+                  AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, child) {
+                      final scale = 1.0 + (_controller.value * 0.4);
+                      final opacity = (1.0 - _controller.value).clamp(0.0, 1.0);
+                      return Transform.scale(
+                        scale: scale,
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFFDC2626).withValues(alpha: opacity), width: 3),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _isSuccess ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (_isSuccess ? const Color(0xFF16A34A) : const Color(0xFFDC2626)).withValues(alpha: 0.5),
+                        blurRadius: 30,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    _isSuccess ? Icons.check_circle : Icons.contactless,
+                    size: 54,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+          if (_isSuccess)
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                minimumSize: const Size(double.infinity, 48),
+              ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tamamlandı', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+            )
+          else
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('İptal Et', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+            ),
+          const SizedBox(height: 12),
+        ],
+      ),
     );
   }
 }
