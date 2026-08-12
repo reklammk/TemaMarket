@@ -1237,18 +1237,18 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                       ),
                       const Divider(height: 20),
 
-                      // APPLE PAY STİLİ TEMASSIZ NFC BUTONU
+                      // TEMASSIZ NFC ILE KASAYA ILETME BUTONU
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           icon: const Icon(Icons.nfc, size: 18, color: Colors.white),
-                          label: const Text('📲 NFC ile Kasaya Okut (Apple Pay)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.white)),
+                          label: const Text('📲 NFC Temassız Okut (Telefon No İlet)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.white)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0F172A),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             padding: const EdgeInsets.symmetric(vertical: 10),
                           ),
-                          onPressed: () => _showNFCContactlessModal(context),
+                          onPressed: () => _showNFCContactlessModal(context, userPhone),
                         ),
                       ),
                     ],
@@ -1660,7 +1660,8 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   }
 
   void _showEnlargedBarcodeModal(BuildContext context, String rawNumber) {
-    final barcodeNo = '869${rawNumber.replaceAll(RegExp(r'\D'), '')}';
+    final cleanPhone = rawNumber.replaceAll(RegExp(r'\D'), '');
+    final barcodeNo = '869$cleanPhone';
     showDialog(
       context: context,
       builder: (context) {
@@ -1697,12 +1698,12 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                     borderRadius: BorderRadius.circular(100),
                     border: Border.all(color: const Color(0xFFFECDD3)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.light_mode, size: 14, color: Color(0xFFDC2626)),
-                      SizedBox(width: 6),
-                      Text('Kasa Lazer Okuyucusu İçin Ekran Parlaklığı Artırıldı', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))),
+                      const Icon(Icons.api, size: 14, color: Color(0xFFDC2626)),
+                      const SizedBox(width: 6),
+                      Text('Kasa Okuyucu Verisi (Telefon No): $cleanPhone', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))),
                     ],
                   ),
                 ),
@@ -1772,7 +1773,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                 const SizedBox(height: 20),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('Barkod Numarasını Kopyala'),
+                  label: Text('Telefon No Kopyala ($cleanPhone)'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0F172A),
                     foregroundColor: Colors.white,
@@ -1780,9 +1781,9 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                     minimumSize: const Size(double.infinity, 44),
                   ),
                   onPressed: () {
-                    Clipboard.setData(ClipboardData(text: barcodeNo));
+                    Clipboard.setData(ClipboardData(text: cleanPhone));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Barkod numarası panoya kopyalandı.')),
+                      SnackBar(content: Text('Müşteri telefon numarası ($cleanPhone) panoya kopyalandı.')),
                     );
                   },
                 ),
@@ -1794,19 +1795,23 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     );
   }
 
-  void _showNFCContactlessModal(BuildContext context) {
+  void _showNFCContactlessModal(BuildContext context, String phone) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) {
-        return _NFCAnimationSheet();
+        return _NFCAnimationSheet(phone: phone);
       },
     );
   }
 }
 
 class _NFCAnimationSheet extends StatefulWidget {
+  final String phone;
+
+  const _NFCAnimationSheet({required this.phone});
+
   @override
   State<_NFCAnimationSheet> createState() => _NFCAnimationSheetState();
 }
@@ -1841,6 +1846,8 @@ class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
 
   @override
   Widget build(BuildContext context) {
+    final cleanPhone = widget.phone.replaceAll(RegExp(r'\D'), '');
+
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF0F172A),
@@ -1862,7 +1869,7 @@ class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
               const Icon(Icons.nfc, color: Color(0xFFEAB308), size: 28),
               const SizedBox(width: 8),
               Text(
-                _isSuccess ? 'TEMA VIP Kart Okutuldu!' : 'Temassız NFC Kasa İşlemi',
+                _isSuccess ? 'NFC İletimi Başarılı!' : 'NFC Temassız Veri Aktarımı',
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
               ),
             ],
@@ -1870,16 +1877,36 @@ class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
           const SizedBox(height: 8),
           Text(
             _isSuccess
-                ? 'VIP İndirimleriniz ve TemaPuanlarınız Kasaya İletildi ✓'
-                : 'Telefonunuzu Kasa POS Cihazına Yaklaştırın...',
+                ? 'Müşteri Telefon Numarası ($cleanPhone) Kasa Sistemine İletildi!\nKasa API Üzerinden TemaPuan ve İndirimler Sorgulandı ✓'
+                : 'Telefonunuzu Kasa Okuyucusuna Yaklaştırın...\nMüşteri No: $cleanPhone',
             style: TextStyle(
               color: _isSuccess ? const Color(0xFF4ADE80) : const Color(0xFF94A3B8),
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.api, color: Color(0xFFEAB308), size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  'Kasa ERP API: /api/v1/customer/lookup?phone=$cleanPhone',
+                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 10, fontFamily: 'monospace'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
           SizedBox(
             width: 140,
             height: 140,
