@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../services/api_service.dart';
 
 // ─────────────────────────────────────────────
 //  Veri modelleri
@@ -160,15 +162,20 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
     'Serkan Öztürk',
   ];
 
+  final TextEditingController _lookupPhoneController = TextEditingController();
+  Map<String, dynamic>? _lookupResult;
+  bool _isSearchingLoyalty = false;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _lookupPhoneController.dispose();
     super.dispose();
   }
 
@@ -509,6 +516,10 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
                   ],
                 ),
                 text: 'Stok Yönetimi'),
+            const Tab(
+              icon: Icon(Icons.qr_code_scanner, size: 18),
+              text: 'Kasa Puan Sorgu',
+            ),
           ],
         ),
       ),
@@ -517,6 +528,7 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
         children: [
           _buildOrdersTab(),
           _buildStockTab(),
+          _buildLoyaltyLookupTab(),
         ],
       ),
     );
@@ -691,6 +703,331 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
             },
             child: const Text('Kaydet', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _searchLoyaltyCustomer(String phone) async {
+    if (phone.trim().isEmpty) return;
+    setState(() {
+      _isSearchingLoyalty = true;
+      _lookupResult = null;
+    });
+
+    final result = await ApiService.lookupCustomerByPhone(phone);
+
+    if (mounted) {
+      setState(() {
+        _isSearchingLoyalty = false;
+        _lookupResult = result;
+      });
+    }
+  }
+
+  void _simulateBarcodeScan() {
+    _lookupPhoneController.text = '05321002233';
+    _searchLoyaltyCustomer('05321002233');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('📷 Lazer Barkod / QR Taraması Başarılı: 05321002233')),
+    );
+  }
+
+  void _simulateNfcRead() {
+    _lookupPhoneController.text = '05321002233';
+    _searchLoyaltyCustomer('05321002233');
+    HapticFeedback.heavyImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('📲 Temassız NFC Kart Okundu: 05321002233')),
+    );
+  }
+
+  // ─── KASA PUAN & MÜŞTERİ SORGU SEKMESİ ─────────────────────────────────
+  Widget _buildLoyaltyLookupTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // BAŞLIK KARTI
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: const Color(0xFFDC2626), borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Bayi Kasa Puan Sorgulama', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                        Text('Elle Girme • Lazer Barkod • NFC ile Sorgu', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Müşteri kasaya geldiğinde telefon numarasını girerek, fiziki/dijital VIP kart barkodunu okutarak veya NFC ile temassız iletilen numarayı sorgulayabilirsiniz.',
+                  style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 12, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // SORGULAMA GİRDİ ALANI
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Müşteri Numarası veya Barkod Verisi', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF0F172A))),
+                const SizedBox(height: 10),
+
+                // 3 HIZLI İŞLEM BUTONU (ELLE GİR, BARKOD OKU, NFC İLE OKU)
+                Row(
+                  children: [
+                    Expanded(
+                      child: ActionChip(
+                        avatar: const Icon(Icons.keyboard, size: 16, color: Color(0xFF0F172A)),
+                        label: const Text('⌨️ Elle Gir', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        onPressed: () {},
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: ActionChip(
+                        avatar: const Icon(Icons.qr_code_2, size: 16, color: Color(0xFFDC2626)),
+                        label: const Text('📷 Barkod Oku', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
+                        backgroundColor: const Color(0xFFFEF2F2),
+                        onPressed: _simulateBarcodeScan,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: ActionChip(
+                        avatar: const Icon(Icons.nfc, size: 16, color: Color(0xFFEAB308)),
+                        label: const Text('📲 NFC ile Oku', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFCA8A04))),
+                        backgroundColor: const Color(0xFFFEF9C3),
+                        onPressed: _simulateNfcRead,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                TextField(
+                  controller: _lookupPhoneController,
+                  keyboardType: TextInputType.phone,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1),
+                  decoration: InputDecoration(
+                    hintText: 'Örn: 05321002233',
+                    prefixIcon: const Icon(Icons.phone_iphone, color: Color(0xFFDC2626)),
+                    suffixIcon: _lookupPhoneController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _lookupPhoneController.clear();
+                              setState(() => _lookupResult = null);
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFDC2626), width: 2)),
+                  ),
+                  onSubmitted: (v) => _searchLoyaltyCustomer(v),
+                ),
+                const SizedBox(height: 14),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    icon: _isSearchingLoyalty
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.search, size: 20),
+                    label: Text(_isSearchingLoyalty ? 'Sorgulanıyor...' : '🔍 Müşteri Puanını Sorgula'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F172A),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: _isSearchingLoyalty ? null : () => _searchLoyaltyCustomer(_lookupPhoneController.text),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // SORGULAMA SONUÇ KARTI
+          if (_lookupResult != null) ...[
+            Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFF16A34A), width: 2),
+                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 4))],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(color: Color(0xFFF0FDF4), shape: BoxShape.circle),
+                            child: const Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 24),
+                          ),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _lookupResult!['name'] ?? 'Müşteri Bulundu',
+                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A)),
+                              ),
+                              Text(
+                                _lookupResult!['phone'] ?? '',
+                                style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF08A),
+                          borderRadius: BorderRadius.circular(100),
+                          border: Border.all(color: const Color(0xFFEAB308)),
+                        ),
+                        child: Text(
+                          _lookupResult!['vip_tier'] ?? 'VIP Üye',
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: Color(0xFF854D0E)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+
+                  // PUAN & İNDİRİM METRİKLERİ
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Birikmiş TemaPuan', style: TextStyle(fontSize: 10, color: Color(0xFF991B1B), fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 4),
+                              Text('${_lookupResult!['points'] ?? 450} Puan', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFFDC2626))),
+                              Text('TL Karşılığı: ₺${_lookupResult!['points_tl'] ?? '45.00'}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Aktif VIP İndirimi', style: TextStyle(fontSize: 10, color: Color(0xFF166534), fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 4),
+                              Text(_lookupResult!['discount_rate'] ?? '%10', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF16A34A))),
+                              const Text('Kasap & Manavda Geçerli', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // KASADA PUAN HARCAMA & İNDİRİM AKSİYONLARI
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.shopping_cart_checkout, size: 18, color: Colors.white),
+                      label: Text('💳 Kasada Puan Harca (₺${_lookupResult!['points_tl'] ?? '45.00'} İndirim)', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF16A34A),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('✓ ${_lookupResult!['name']} için ₺${_lookupResult!['points_tl'] ?? '45.00'} puan indirimi kasaya uygulandı.'),
+                            backgroundColor: const Color(0xFF16A34A),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 42,
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.local_offer, size: 16, color: Color(0xFFDC2626)),
+                      label: Text('🎁 VIP İndirim Oranını Uygula (${_lookupResult!['discount_rate'] ?? '%10'})', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Color(0xFFDC2626))),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFDC2626)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('✓ Müşteri VIP indirimi sepete eklendi.'),
+                            backgroundColor: Color(0xFFDC2626),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
