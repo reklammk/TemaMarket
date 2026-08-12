@@ -121,7 +121,7 @@ class _AuthPageState extends State<AuthPage> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Container(
-              maxWidth: 480,
+              constraints: const BoxConstraints(maxWidth: 480),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(28),
