@@ -9,7 +9,7 @@ import 'pages/courier_panel_page.dart';
 import 'pages/merchant_panel_page.dart';
 import 'pages/admin_dashboard_page.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
   // iOS ve Android Global Çökme Önleyici (Global Error Handler)
@@ -22,12 +22,6 @@ void main() async {
     debugPrint('Platform Asenkron Hata Yakalandı: $error');
     return true; // Uygulamanın çökmesini engelle
   };
-
-  try {
-    await NotificationService().initNotification();
-  } catch (e) {
-    debugPrint('Notification init error: $e');
-  }
 
   runApp(const TemasanApp());
 }
@@ -42,6 +36,18 @@ class TemasanApp extends StatefulWidget {
 class _TemasanAppState extends State<TemasanApp> {
   Map<String, dynamic>? _currentUser;
   String _currentRoute = 'splash';
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() async {
+      try {
+        await NotificationService().initNotification();
+      } catch (e) {
+        debugPrint('Notification init error: $e');
+      }
+    });
+  }
 
   void _handleLoginSuccess(Map<String, dynamic> user) {
     setState(() {
@@ -79,7 +85,6 @@ class _TemasanAppState extends State<TemasanApp> {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primaryColor: const Color(0xFFDC2626),
-        fontFamily: 'Plus Jakarta Sans',
         useMaterial3: true,
       ),
       home: _buildCurrentPage(),
