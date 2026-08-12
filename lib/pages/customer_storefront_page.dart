@@ -332,9 +332,9 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
 
   Widget _buildNavbar() {
     return Container(
-      color: Colors.white,
       padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top, bottom: 8),
       decoration: BoxDecoration(
+        color: Colors.white,
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
