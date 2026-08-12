@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -25,16 +26,31 @@ class CustomerStorefrontPage extends StatefulWidget {
 
 class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   FeatureFlags _flags = const FeatureFlags();
+  Timer? _flagsTimer;
 
   @override
   void initState() {
     super.initState();
     _loadFlags();
+    _flagsTimer = Timer.periodic(const Duration(seconds: 2), (_) => _loadFlags());
+  }
+
+  @override
+  void dispose() {
+    _flagsTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadFlags() async {
     final flags = await FeatureFlagsService.loadFlags();
-    if (mounted) setState(() => _flags = flags);
+    if (mounted) {
+      setState(() {
+        _flags = flags;
+        if (!flags.sanalMarket && _cart.isNotEmpty) {
+          _cart.clear();
+        }
+      });
+    }
   }
 
   final List<Map<String, dynamic>> _cart = [];
@@ -335,7 +351,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
               icon: Stack(
                 children: [
                   const Icon(Icons.shopping_bag_outlined, color: Color(0xFF0F172A), size: 28),
-                  if (_cart.isNotEmpty)
+                  if (_flags.sanalMarket && _cart.isNotEmpty)
                     Positioned(
                       right: 0,
                       top: 0,
@@ -378,7 +394,14 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         items: [
           const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Ana Sayfa'),
           const BottomNavigationBarItem(icon: Icon(Icons.store), label: 'Şubeler'),
-          BottomNavigationBarItem(icon: Badge(label: Text('${_cart.length}'), child: const Icon(Icons.shopping_bag)), label: 'Sepetim'),
+          BottomNavigationBarItem(
+            icon: Badge(
+              isLabelVisible: _flags.sanalMarket && _cart.isNotEmpty,
+              label: Text('${_cart.length}'),
+              child: const Icon(Icons.shopping_bag),
+            ),
+            label: 'Sepetim',
+          ),
           const BottomNavigationBarItem(icon: Icon(Icons.auto_awesome), label: 'Sizin İçin'),
           const BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Hesabım'),
         ],
@@ -705,7 +728,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                                       side: _flags.sanalMarket ? null : const BorderSide(color: Color(0xFFFECDD3)),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                                     ),
-                                    onPressed: _flags.sanalMarket ? () => _addToCart(p) : null,
+                                    onPressed: () => _addToCart(p),
                                     child: Text(
                                       _flags.sanalMarket ? 'Ekle' : 'Şubede Fırsat',
                                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: _flags.sanalMarket ? Colors.white : const Color(0xFFDC2626)),
@@ -791,11 +814,13 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                             height: 30,
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: _flags.sanalMarket ? const Color(0xFFDC2626) : Colors.grey.shade300,
+                                backgroundColor: _flags.sanalMarket ? const Color(0xFFDC2626) : const Color(0xFFFEF2F2),
+                                elevation: 0,
+                                side: _flags.sanalMarket ? null : const BorderSide(color: Color(0xFFFECDD3)),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                               ),
-                              onPressed: _flags.sanalMarket ? () => _addToCart(p) : null,
-                              child: Text(_flags.sanalMarket ? 'Ekle' : 'Şubede Fırsat', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: _flags.sanalMarket ? Colors.white : Colors.grey.shade700)),
+                              onPressed: () => _addToCart(p),
+                              child: Text(_flags.sanalMarket ? 'Ekle' : 'Şubede Fırsat', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: _flags.sanalMarket ? Colors.white : const Color(0xFFDC2626))),
                             ),
                           ),
                         ],
@@ -858,11 +883,13 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                         height: 34,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: _flags.sanalMarket ? const Color(0xFFDC2626) : Colors.grey.shade300,
+                            backgroundColor: _flags.sanalMarket ? const Color(0xFFDC2626) : const Color(0xFFFEF2F2),
+                            elevation: 0,
+                            side: _flags.sanalMarket ? null : const BorderSide(color: Color(0xFFFECDD3)),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                           ),
-                          onPressed: _flags.sanalMarket ? () => _addToCart(p) : null,
-                          child: Text(_flags.sanalMarket ? 'Hemen Ekle' : 'Şubede Fırsat Ürünü', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: _flags.sanalMarket ? Colors.white : Colors.grey.shade700)),
+                          onPressed: () => _addToCart(p),
+                          child: Text(_flags.sanalMarket ? 'Hemen Ekle' : 'Şubede Fırsat Ürünü', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: _flags.sanalMarket ? Colors.white : const Color(0xFFDC2626))),
                         ),
                       ),
                     ],
@@ -1636,14 +1663,19 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                               height: 34,
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFDC2626),
+                                  backgroundColor: _flags.sanalMarket ? const Color(0xFFDC2626) : const Color(0xFFFEF2F2),
+                                  elevation: 0,
+                                  side: _flags.sanalMarket ? null : const BorderSide(color: Color(0xFFFECDD3)),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                                 ),
                                 onPressed: () {
                                   _addToCart(p);
-                                  Navigator.pop(context);
+                                  if (_flags.sanalMarket) Navigator.pop(context);
                                 },
-                                child: const Text('Sepete Ekle', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.white)),
+                                child: Text(
+                                  _flags.sanalMarket ? 'Sepete Ekle' : 'Şubede Fırsat Ürünü',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: _flags.sanalMarket ? Colors.white : const Color(0xFFDC2626)),
+                                ),
                               ),
                             ),
                           ],

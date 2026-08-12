@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'api_service.dart';
 
 class FeatureFlags {
   final bool sanalMarket;
@@ -28,16 +29,16 @@ class FeatureFlags {
 
   factory FeatureFlags.fromJson(Map<String, dynamic> json) {
     return FeatureFlags(
-      sanalMarket: json['sanal_market'] ?? true,
-      bayiStok: json['bayi_stok'] ?? true,
+      sanalMarket: json['sanal_market'] ?? json['sanalMarket'] ?? true,
+      bayiStok: json['bayi_stok'] ?? json['bayiStok'] ?? true,
       temapuan: json['temapuan'] ?? true,
-      apiEntegrasyon: json['api_entegrasyon'] ?? true,
-      smsGonderim: json['sms_gonderim'] ?? true,
+      apiEntegrasyon: json['api_entegrasyon'] ?? json['apiEntegrasyon'] ?? true,
+      smsGonderim: json['sms_gonderim'] ?? json['smsGonderim'] ?? true,
       kampanyalar: json['kampanyalar'] ?? true,
-      sanalPos: json['sanal_pos'] ?? true,
-      softPos: json['soft_pos'] ?? true,
-      eFatura: json['e_fatura'] ?? true,
-      serbestKurye: json['serbest_kurye'] ?? true,
+      sanalPos: json['sanal_pos'] ?? json['sanalPos'] ?? true,
+      softPos: json['soft_pos'] ?? json['softPos'] ?? true,
+      eFatura: json['e_fatura'] ?? json['eFatura'] ?? true,
+      serbestKurye: json['serbest_kurye'] ?? json['serbestKurye'] ?? true,
     );
   }
 
@@ -63,6 +64,15 @@ class FeatureFlagsService {
   static FeatureFlags get current => _current;
 
   static Future<FeatureFlags> loadFlags() async {
+    try {
+      final remoteFlagsMap = await ApiService.fetchFeatureFlags();
+      if (remoteFlagsMap != null) {
+        _current = FeatureFlags.fromJson(remoteFlagsMap);
+        saveFlags(_current);
+        return _current;
+      }
+    } catch (_) {}
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString('temasan_feature_flags');
