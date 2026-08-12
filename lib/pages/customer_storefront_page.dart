@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import '../services/feature_flags_service.dart';
 
 class CustomerStorefrontPage extends StatefulWidget {
@@ -1224,7 +1225,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '869${userPhone.replaceAll(RegExp(r'\D'), '')}',
+                              userPhone.replaceAll(RegExp(r'\D'), ''),
                               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2, color: Color(0xFF0F172A), fontFamily: 'monospace'),
                             ),
                             const SizedBox(height: 2),
@@ -1661,7 +1662,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
 
   void _showEnlargedBarcodeModal(BuildContext context, String rawNumber) {
     final cleanPhone = rawNumber.replaceAll(RegExp(r'\D'), '');
-    final barcodeNo = '869$cleanPhone';
+    final barcodeNo = cleanPhone; // Birebir aynı müşteri telefon numarası!
     showDialog(
       context: context,
       builder: (context) {
@@ -1819,6 +1820,7 @@ class _NFCAnimationSheet extends StatefulWidget {
 class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  bool _isTransmitting = false;
   bool _isSuccess = false;
 
   @override
@@ -1828,10 +1830,18 @@ class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat();
+  }
 
-    Future.delayed(const Duration(milliseconds: 2400), () {
+  void _triggerNfcTransmission() {
+    setState(() => _isTransmitting = true);
+    HapticFeedback.mediumImpact();
+
+    Future.delayed(const Duration(milliseconds: 1800), () {
       if (mounted) {
-        setState(() => _isSuccess = true);
+        setState(() {
+          _isTransmitting = false;
+          _isSuccess = true;
+        });
         _controller.stop();
         HapticFeedback.heavyImpact();
       }
@@ -1847,6 +1857,7 @@ class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
   @override
   Widget build(BuildContext context) {
     final cleanPhone = widget.phone.replaceAll(RegExp(r'\D'), '');
+    final isDesktop = kIsWeb || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.linux;
 
     return Container(
       decoration: const BoxDecoration(
@@ -1869,7 +1880,9 @@ class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
               const Icon(Icons.nfc, color: Color(0xFFEAB308), size: 28),
               const SizedBox(width: 8),
               Text(
-                _isSuccess ? 'NFC İletimi Başarılı!' : 'NFC Temassız Veri Aktarımı',
+                _isSuccess
+                    ? 'NFC İletimi Başarılı!'
+                    : (_isTransmitting ? 'NFC Verisi Gönderiliyor...' : 'NFC Temassız Veri Aktarımı'),
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
               ),
             ],
@@ -1878,7 +1891,9 @@ class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
           Text(
             _isSuccess
                 ? 'Müşteri Telefon Numarası ($cleanPhone) Kasa Sistemine İletildi!\nKasa API Üzerinden TemaPuan ve İndirimler Sorgulandı ✓'
-                : 'Telefonunuzu Kasa Okuyucusuna Yaklaştırın...\nMüşteri No: $cleanPhone',
+                : (_isTransmitting
+                    ? 'Telefon Numarası ($cleanPhone) Kasa Okuyucusuna Aktarılıyor...'
+                    : 'Telefonunuzu Kasa NFC Okuyucusuna Yaklaştırın Veya Sinyali Gönderin.\nMüşteri No: $cleanPhone'),
             style: TextStyle(
               color: _isSuccess ? const Color(0xFF4ADE80) : const Color(0xFF94A3B8),
               fontSize: 12,
@@ -1886,27 +1901,33 @@ class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white12),
+          const SizedBox(height: 16),
+
+          if (isDesktop && !_isSuccess)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFECDD3).withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.computer, color: Color(0xFFEAB308), size: 16),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Masaüstü/Web ortamındasınız. Mobil cihazlarda fiziksel NFC çipi ile temas kurulur.',
+                      style: TextStyle(color: Color(0xFFFDE047), fontSize: 10),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.api, color: Color(0xFFEAB308), size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  'Kasa ERP API: /api/v1/customer/lookup?phone=$cleanPhone',
-                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 10, fontFamily: 'monospace'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+
+          // NFC DALGA SİMÜLASYONU
           SizedBox(
             width: 140,
             height: 140,
@@ -1926,7 +1947,7 @@ class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
                           height: 120,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFFDC2626).withValues(alpha: opacity), width: 3),
+                            border: Border.all(color: (_isTransmitting ? const Color(0xFF16A34A) : const Color(0xFFDC2626)).withValues(alpha: opacity), width: 3),
                           ),
                         ),
                       );
@@ -1937,7 +1958,7 @@ class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
                   height: 100,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _isSuccess ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                    color: _isSuccess ? const Color(0xFF16A34A) : (_isTransmitting ? const Color(0xFFCA8A04) : const Color(0xFFDC2626)),
                     boxShadow: [
                       BoxShadow(
                         color: (_isSuccess ? const Color(0xFF16A34A) : const Color(0xFFDC2626)).withValues(alpha: 0.5),
@@ -1956,6 +1977,7 @@ class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
             ),
           ),
           const SizedBox(height: 28),
+
           if (_isSuccess)
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -1967,11 +1989,24 @@ class _NFCAnimationSheetState extends State<_NFCAnimationSheet>
               onPressed: () => Navigator.pop(context),
               child: const Text('Tamamlandı', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
             )
-          else
+          else ...[
+            ElevatedButton.icon(
+              icon: _isTransmitting ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.nfc, size: 18),
+              label: Text(_isTransmitting ? 'Sinyal Aktarılıyor...' : 'NFC Sinyalini Gönder (Kasaya Okut)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                minimumSize: const Size(double.infinity, 46),
+              ),
+              onPressed: _isTransmitting ? null : _triggerNfcTransmission,
+            ),
+            const SizedBox(height: 8),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('İptal Et', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
             ),
+          ],
           const SizedBox(height: 12),
         ],
       ),
