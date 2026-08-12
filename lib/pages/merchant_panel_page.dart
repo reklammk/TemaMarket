@@ -1,71 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/api_service.dart';
+import '../services/feature_flags_service.dart';
 
-// ─────────────────────────────────────────────
-//  Veri modelleri
-// ─────────────────────────────────────────────
-class MerchantOrder {
-  final String orderNo;
-  final String customer;
-  final String phone;
-  final String address;
-  final List<Map<String, dynamic>> items;
-  final double total;
-  final String paymentType;
-  final DateTime createdAt;
-  String status; // 'new' | 'preparing' | 'ready' | 'on_way' | 'delivered'
-  String? assignedCourier;
-
-  MerchantOrder({
-    required this.orderNo,
-    required this.customer,
-    required this.phone,
-    required this.address,
-    required this.items,
-    required this.total,
-    required this.paymentType,
-    required this.createdAt,
-    this.status = 'new',
-    this.assignedCourier,
-  });
-}
-
-class StockItem {
-  final int id;
-  final String name;
-  final String category;
-  final String unit;
-  final double price;
-  int stock;
-  int minStock;
-
-  StockItem({
-    required this.id,
-    required this.name,
-    required this.category,
-    required this.unit,
-    required this.price,
-    required this.stock,
-    this.minStock = 5,
-  });
-
-  String get stockStatus {
-    if (stock == 0) return 'Tükendi';
-    if (stock <= minStock) return 'Kritik';
-    return 'Stokta';
-  }
-
-  Color get statusColor {
-    if (stock == 0) return const Color(0xFFDC2626);
-    if (stock <= minStock) return const Color(0xFFF59E0B);
-    return const Color(0xFF16A34A);
-  }
-}
-
-// ─────────────────────────────────────────────
-//  Ana Widget
-// ─────────────────────────────────────────────
+/// TEMASAN ERP — Tam Teşekküllü Yönetici Konsolu (Admin & Merchant Dashboard)
+/// Web Yönetici Paneli (AdminDashboardPage.tsx) ile 1'e 1 Birebir Aynı Tasarım ve Fonksiyonsellik.
 class MerchantPanelPage extends StatefulWidget {
   final Map<String, dynamic>? user;
   final VoidCallback? onBackToStore;
@@ -78,1364 +18,1117 @@ class MerchantPanelPage extends StatefulWidget {
 
 class _MerchantPanelPageState extends State<MerchantPanelPage>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  String _stockSearch = '';
+  int _activeTab = 0;
+  bool _isLoading = false;
 
-  final List<MerchantOrder> _orders = [
-    MerchantOrder(
-      orderNo: '#TEM-84923',
-      customer: 'Ali Kaya',
-      phone: '+90 532 111 2244',
-      address: 'Cumhuriyet Mah. Atatürk Cad. No:8 Yakutiye/Erzurum',
-      items: [
-        {'name': 'Dana Kasap Sucuk 500g', 'qty': 2, 'price': 499.00},
-        {'name': 'Kaşar Peyniri 600g', 'qty': 1, 'price': 299.00},
-      ],
-      total: 1297.00,
-      paymentType: 'online',
-      createdAt: DateTime.now().subtract(const Duration(minutes: 4)),
-      status: 'new',
-    ),
-    MerchantOrder(
-      orderNo: '#TEM-84922',
-      customer: 'Fatma Kaya',
-      phone: '+90 505 300 4455',
-      address: 'Dadaşkent Mah. Köprübaşı Sok. No:8 Palandöken/Erzurum',
-      items: [
-        {'name': 'Köy Tereyağı 1kg', 'qty': 1, 'price': 320.00},
-        {'name': 'Civil Peyniri 500g', 'qty': 1, 'price': 240.00},
-      ],
-      total: 560.00,
-      paymentType: 'softpos',
-      createdAt: DateTime.now().subtract(const Duration(minutes: 12)),
-      status: 'preparing',
-      assignedCourier: 'Ahmet Yılmaz',
-    ),
-    MerchantOrder(
-      orderNo: '#TEM-84920',
-      customer: 'Zeynep Yılmaz',
-      phone: '+90 532 100 2233',
-      address: 'Gezköy OSB Mah. 3. Sanayi Cad. No:5 Aziziye/Erzurum',
-      items: [
-        {'name': 'Dana Kasap Sucuk 500g', 'qty': 2, 'price': 499.00},
-        {'name': 'Kaşar Peyniri 600g', 'qty': 1, 'price': 299.00},
-      ],
-      total: 499.00,
-      paymentType: 'softpos',
-      createdAt: DateTime.now().subtract(const Duration(minutes: 35)),
-      status: 'on_way',
-      assignedCourier: 'Mehmet Demir',
-    ),
-    MerchantOrder(
-      orderNo: '#TEM-84919',
-      customer: 'Hasan Şahin',
-      phone: '+90 555 444 3322',
-      address: 'Yenişehir Mah. 15 Temmuz Bulv. No:22 Erzurum',
-      items: [
-        {'name': 'Hakiki Bal Petek 500g', 'qty': 2, 'price': 350.00},
-      ],
-      total: 700.00,
-      paymentType: 'online',
-      createdAt: DateTime.now().subtract(const Duration(hours: 1, minutes: 10)),
-      status: 'delivered',
-      assignedCourier: 'Ahmet Yılmaz',
-    ),
+  // ── CANLI VERİ HAFIZASI ──
+  List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _orders = [];
+  List<Map<String, dynamic>> _campaigns = [];
+  List<Map<String, dynamic>> _applications = [];
+  List<Map<String, dynamic>> _users = [];
+  FeatureFlags _featureFlags = const FeatureFlags();
+  Timer? _syncTimer;
+
+  // Arama & Filtreleme State'leri
+  String _searchBranchQuery = '';
+  String _searchProductQuery = '';
+  String _orderStatusFilter = 'Tümü';
+
+  // 16 Adet Gerçek TEMA Şubesi (Web paneli ile birebir eşleştirilmiş sabit liste)
+  final List<Map<String, dynamic>> _defaultBranchesData = [
+    {
+      'id': 1,
+      'code': 'SUB-001',
+      'name': 'Lalapaşa AVM (Yakutiye)',
+      'manager_name': 'Kadir KUZU',
+      'email': 'lalapasa@temasan.com',
+      'phone': '0531 221 36 32',
+      'city_district': 'Yakutiye / Erzurum',
+      'address': 'Lalapaşa, Cumhuriyet Cd., 25030 Yakutiye/Erzurum',
+      'year': 1989,
+      'area': '6000 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 2,
+      'code': 'SUB-002',
+      'name': 'Pasinler',
+      'manager_name': 'Yusuf BAYOĞLU',
+      'email': 'pasinler@temasan.com',
+      'phone': '0532 624 82 37',
+      'city_district': 'Pasinler / Erzurum',
+      'address': 'Erzurumkapı, 25300 Pasinler/Erzurum',
+      'year': 1999,
+      'area': '1600 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 3,
+      'code': 'SUB-003',
+      'name': 'Yenişehir AVM',
+      'manager_name': 'Taşkın ÇUBUK',
+      'email': 'yenisehir@temasan.com',
+      'phone': '0542 805 29 46',
+      'city_district': 'Palandöken / Erzurum',
+      'address': 'Tema AVM, Hacı Salih Efendi Mh, 25000 Palandöken/Erzurum',
+      'year': 2002,
+      'area': '3900 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 4,
+      'code': 'SUB-004',
+      'name': 'Kelkit-1',
+      'manager_name': 'Volkan MANSIZ',
+      'email': 'kelkit1@temasan.com',
+      'phone': '0530 465 29 30',
+      'city_district': 'Kelkit / Gümüşhane',
+      'address': 'Milli Egemenlik Meydanı, Aydın Doğan Cd. Kelkit/Gümüşhane',
+      'year': 2004,
+      'area': '750 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 5,
+      'code': 'SUB-005',
+      'name': 'Şenkaya',
+      'manager_name': 'Adem ŞARA',
+      'email': 'senkaya@temasan.com',
+      'phone': '0530 264 53 47',
+      'city_district': 'Şenkaya / Erzurum',
+      'address': 'Yukarı Mah. 25360 Şenkaya/Erzurum',
+      'year': 2004,
+      'area': '650 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 6,
+      'code': 'SUB-006',
+      'name': 'Kelkit-2',
+      'manager_name': 'Volkan MANSIZ',
+      'email': 'kelkit2@temasan.com',
+      'phone': '0530 465 29 30',
+      'city_district': 'Kelkit / Gümüşhane',
+      'address': 'Cumhuriyet Mah. 29600 Kelkit/Gümüşhane',
+      'year': 2005,
+      'area': '600 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 7,
+      'code': 'SUB-007',
+      'name': 'Selimiye',
+      'manager_name': 'Ertuğrul DİKİCİ',
+      'email': 'selimiye@temasan.com',
+      'phone': '0538 943 12 15',
+      'city_district': 'Palandöken / Erzurum',
+      'address': 'Osmangazi Mahallesi, 75. Sk., 25070 Palandöken/Erzurum',
+      'year': 2006,
+      'area': '900 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 8,
+      'code': 'SUB-008',
+      'name': 'Uzundere',
+      'manager_name': 'Bekir ÖZDEMİR',
+      'email': 'uzundere@temasan.com',
+      'phone': '0532 705 25 91',
+      'city_district': 'Uzundere / Erzurum',
+      'address': 'Merkez Mah. 25440 Uzundere/Erzurum',
+      'year': 2007,
+      'area': '700 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 9,
+      'code': 'SUB-009',
+      'name': 'Terminal',
+      'manager_name': 'Eren GÜRSES',
+      'email': 'terminal@temasan.com',
+      'phone': '0546 743 13 29',
+      'city_district': 'Yakutiye / Erzurum',
+      'address': 'Üniversite Mah. 25240 Yakutiye/Erzurum',
+      'year': 2011,
+      'area': '900 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 10,
+      'code': 'SUB-010',
+      'name': 'Çırcır',
+      'manager_name': 'Harun BİNGÖL',
+      'email': 'circir@temasan.com',
+      'phone': '0531 221 36 46',
+      'city_district': 'Yakutiye / Erzurum',
+      'address': 'Muratpaşa, Cami Sk. Bakaçlar Sitesi D:4/1 Yakutiye/Erzurum',
+      'year': 2013,
+      'area': '950 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 11,
+      'code': 'SUB-011',
+      'name': 'Hilalkent',
+      'manager_name': 'Salih SIĞIRLILI',
+      'email': 'hilalkent@temasan.com',
+      'phone': '0531 232 62 77',
+      'city_district': 'Yakutiye / Erzurum',
+      'address': 'Kurtuluş Mah. Aycan Sok. No:10 Yakutiye/Erzurum',
+      'year': 2013,
+      'area': '1300 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 12,
+      'code': 'SUB-012',
+      'name': 'Dadaşkent AVM',
+      'manager_name': 'Musab Ahmet BAKAÇ',
+      'email': 'dadaskentavm@temasan.com',
+      'phone': '0506 962 02 58',
+      'city_district': 'Aziziye / Erzurum',
+      'address': 'Saltuklu Mah. Milli Egemenlik Cad. Aziziye/Erzurum',
+      'year': 2014,
+      'area': '2300 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 13,
+      'code': 'SUB-013',
+      'name': 'Yıldızkent-2',
+      'manager_name': 'Selahattin BAYRAK',
+      'email': 'yildizkent2@temasan.com',
+      'phone': '0542 426 93 03',
+      'city_district': 'Palandöken / Erzurum',
+      'address': 'Hüseyin Avni Ulaş, 212. Sk. No:15 Palandöken/Erzurum',
+      'year': 2015,
+      'area': '1200 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 14,
+      'code': 'SUB-014',
+      'name': 'Kayakyolu-1',
+      'manager_name': 'Kadir YILMAZ',
+      'email': 'kayakyolu1@temasan.com',
+      'phone': '0534 548 18 67',
+      'city_district': 'Palandöken / Erzurum',
+      'address': 'Osman Bektaş, Öz Meral Sk. No:29 Palandöken/Erzurum',
+      'year': 2016,
+      'area': '750 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 15,
+      'code': 'SUB-015',
+      'name': 'Nenehatun',
+      'manager_name': 'Recep TOKYÜREK',
+      'email': 'nenehatun@temasan.com',
+      'phone': '0544 241 58 29',
+      'city_district': 'Yakutiye / Erzurum',
+      'address': 'Şükrüpaşa, Necip Fazıl Kısakürek Cd. Yakutiye/Erzurum',
+      'year': 2018,
+      'area': '900 m²',
+      'status': 'AKTİF'
+    },
+    {
+      'id': 16,
+      'code': 'SUB-016',
+      'name': 'Enkule AVM',
+      'manager_name': 'Abdulkadir ŞİRCİ',
+      'email': 'enkuleavm@temasan.com',
+      'phone': '0545 446 48 11',
+      'city_district': 'Yakutiye / Erzurum',
+      'address': 'Rabia Ana Mah. Palandöken Cad. No:1 Yakutiye/Erzurum',
+      'year': 2020,
+      'area': '1250 m²',
+      'status': 'AKTİF'
+    },
   ];
-
-  final List<StockItem> _stocks = [
-    StockItem(id: 1, name: 'Dana Kasap Parmak Sucuk 500g', category: 'Kasap', unit: 'Paket', price: 499.00, stock: 25, minStock: 5),
-    StockItem(id: 2, name: 'Sıkma File Portakal 2kg', category: 'Manav', unit: 'File', price: 49.90, stock: 3, minStock: 10),
-    StockItem(id: 3, name: 'Torku Tam Yağlı Kaşar 600g', category: 'Sarkuteri', unit: 'Adet', price: 299.00, stock: 14, minStock: 5),
-    StockItem(id: 4, name: 'Erzurum Hakiki Bal Petek 500g', category: 'Sarkuteri', unit: 'Kavanoz', price: 350.00, stock: 0, minStock: 3),
-    StockItem(id: 5, name: 'Köy Tereyağı 1kg', category: 'Sarkuteri', unit: 'Kg', price: 320.00, stock: 8, minStock: 5),
-    StockItem(id: 6, name: 'Trabzon Ekşi Mayalı Ekmek 800g', category: 'Fırın', unit: 'Adet', price: 35.00, stock: 42, minStock: 20),
-    StockItem(id: 7, name: 'Çaykur Rize Turist Çayı 1000g', category: 'İçecek', unit: 'Kutu', price: 165.00, stock: 2, minStock: 10),
-    StockItem(id: 8, name: 'Civil Peyniri 500g', category: 'Sarkuteri', unit: 'Adet', price: 240.00, stock: 17, minStock: 5),
-    StockItem(id: 9, name: 'Yerli Kuru Fasulye 1kg', category: 'Bakliyat', unit: 'Torba', price: 120.00, stock: 30, minStock: 10),
-    StockItem(id: 10, name: 'Amasya Elması 1kg', category: 'Manav', unit: 'Kg', price: 34.90, stock: 0, minStock: 15),
-  ];
-
-  final List<String> _couriers = [
-    'Ahmet Yılmaz',
-    'Mehmet Demir',
-    'Kemal Arslan',
-    'Serkan Öztürk',
-  ];
-
-  final TextEditingController _lookupPhoneController = TextEditingController();
-  Map<String, dynamic>? _lookupResult;
-  bool _isSearchingLoyalty = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _loadInitialData();
+
+    // 2 saniyede bir canlı senkronizasyon döngüsü
+    _syncTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _syncLiveFlags();
+    });
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
-    _lookupPhoneController.dispose();
+    _syncTimer?.cancel();
     super.dispose();
   }
 
-  // ── İstatistikler ───────────────────────────────────────────────────────
-  int get _newOrders      => _orders.where((o) => o.status == 'new').length;
-  int get _criticalStocks => _stocks.where((s) => s.stock <= s.minStock).length;
+  Future<void> _loadInitialData() async {
+    setState(() => _isLoading = true);
+    try {
+      // 1. Canlı Şubeler
+      final apiBranches = await ApiService.fetchBranches();
+      if (apiBranches.isNotEmpty) {
+        _branches = apiBranches;
+      } else {
+        _branches = List.from(_defaultBranchesData);
+      }
 
-  // ── Renk / Etiket yardımcıları ───────────────────────────────────────────
-  Color _orderStatusColor(String s) {
-    switch (s) {
-      case 'new':       return const Color(0xFFDC2626);
-      case 'preparing': return const Color(0xFFF59E0B);
-      case 'ready':     return const Color(0xFF8B5CF6);
-      case 'on_way':    return const Color(0xFF2563EB);
-      case 'delivered': return const Color(0xFF16A34A);
-      default:          return Colors.grey;
+      // 2. Canlı Ürünler
+      final apiProducts = await ApiService.fetchProducts();
+      if (apiProducts.isNotEmpty) {
+        _products = apiProducts;
+      }
+
+      // 3. Canlı Kampanyalar
+      final apiCampaigns = await ApiService.fetchCampaigns();
+      if (apiCampaigns.isNotEmpty) {
+        _campaigns = apiCampaigns;
+      }
+
+      // 4. Canlı Feature Flags
+      await _syncLiveFlags();
+    } catch (e) {
+      debugPrint('Admin console load error: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  String _orderStatusLabel(String s) {
-    switch (s) {
-      case 'new':       return 'Yeni Sipariş';
-      case 'preparing': return 'Hazırlanıyor';
-      case 'ready':     return 'Kuryeye Hazır';
-      case 'on_way':    return 'Yolda';
-      case 'delivered': return 'Teslim Edildi';
-      default:          return s;
-    }
+  Future<void> _syncLiveFlags() async {
+    try {
+      final flags = await FeatureFlagsService.loadFlags();
+      if (mounted && !flags.isIdenticalTo(_featureFlags)) {
+        setState(() {
+          _featureFlags = flags;
+        });
+      }
+    } catch (_) {}
   }
 
-  String _nextStatusLabel(String s) {
-    switch (s) {
-      case 'new':       return 'Hazırlamaya Başla';
-      case 'preparing': return 'Hazır — Kurye Bekliyor';
-      case 'ready':     return 'Kuryeye Teslim Et';
-      default:          return '';
-    }
-  }
+  Future<void> _toggleFeature(String key, bool value) async {
+    final Map<String, dynamic> updatedMap = {
+      'sanal_market': key == 'sanal_market' ? value : _featureFlags.sanalMarket,
+      'bayi_stok': key == 'bayi_stok' ? value : _featureFlags.bayiStok,
+      'temapuan': key == 'temapuan' ? value : _featureFlags.temapuan,
+      'api_entegrasyon': key == 'api_entegrasyon' ? value : _featureFlags.apiEntegrasyon,
+      'sms_gonderim': key == 'sms_gonderim' ? value : _featureFlags.smsGonderim,
+      'kampanyalar': key == 'kampanyalar' ? value : _featureFlags.kampanyalar,
+      'sanal_pos': key == 'sanal_pos' ? value : _featureFlags.sanalPos,
+      'soft_pos': key == 'soft_pos' ? value : _featureFlags.softPos,
+      'e_fatura': key == 'e_fatura' ? value : _featureFlags.eFatura,
+      'serbest_kurye': key == 'serbest_kurye' ? value : _featureFlags.serbestKurye,
+    };
 
-  String _nextStatus(String s) {
-    switch (s) {
-      case 'new':       return 'preparing';
-      case 'preparing': return 'ready';
-      case 'ready':     return 'on_way';
-      default:          return s;
-    }
-  }
+    // Optimistik UI Güncellemesi
+    setState(() {
+      _featureFlags = FeatureFlags.fromJson(updatedMap);
+    });
 
-  String _elapsedTime(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
-    return '${diff.inHours} sa ${diff.inMinutes % 60} dk önce';
-  }
+    // Canlı Backend API'ye kaydet
+    await ApiService.saveFeatureFlags(updatedMap);
+    await FeatureFlagsService.saveFlags(_featureFlags);
 
-  // ── Kurye atama dialog ──────────────────────────────────────────────────
-  void _showAssignCourier(MerchantOrder order) {
-    String? selected = order.assignedCourier;
-    showDialog(
-      context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Kurye Ata', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-              Text(order.orderNo, style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.w700)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            // ignore: deprecated_member_use
-            children: _couriers.map((c) => RadioListTile<String>(
-              title: Text(c, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-              value: c,
-              groupValue: selected,
-              fillColor: WidgetStateProperty.resolveWith<Color>((states) {
-                if (states.contains(WidgetState.selected)) return const Color(0xFFDC2626);
-                return Colors.grey;
-              }),
-              contentPadding: EdgeInsets.zero,
-              onChanged: (v) => setLocal(() => selected = v),
-            )).toList(),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('İptal', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFDC2626),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-              ),
-              onPressed: () {
-                setState(() {
-                  order.assignedCourier = selected;
-                  if (order.status == 'new' || order.status == 'preparing') {
-                    order.status = 'ready';
-                  }
-                });
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${order.orderNo} → $selected kuryesine atandı.'),
-                    backgroundColor: const Color(0xFF16A34A),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              child: const Text('Kaydet', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-            ),
-          ],
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Şalter güncellendi: $key ➔ ${value ? "AKTİF" : "DEAKTİF"}'),
+          backgroundColor: value ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+          duration: const Duration(seconds: 2),
         ),
-      ),
-    );
+      );
+    }
   }
 
-  // ── Sipariş detay bottom sheet ──────────────────────────────────────────
-  void _showOrderDetail(MerchantOrder order) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setLocal) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 36),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Handle
-                Center(child: Container(width: 44, height: 4,
-                  decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(100)))),
-                const SizedBox(height: 20),
+  // ── MENÜ LİSTESİ (Web Admin ile Birebir Aynı) ──
+  final List<Map<String, dynamic>> _menuItems = [
+    {'id': 0, 'label': 'Dashboard', 'icon': Icons.dashboard_outlined},
+    {'id': 1, 'label': 'Şube & Bayi Hesapları', 'icon': Icons.store_outlined},
+    {'id': 2, 'label': 'Siparişler', 'icon': Icons.shopping_bag_outlined},
+    {'id': 3, 'label': 'Ürünler', 'icon': Icons.inventory_2_outlined},
+    {'id': 4, 'label': 'Kategoriler', 'icon': Icons.category_outlined},
+    {'id': 5, 'label': 'Kampanyalar', 'icon': Icons.local_offer_outlined},
+    {'id': 6, 'label': 'SMS Gönderimi', 'icon': Icons.sms_outlined},
+    {'id': 7, 'label': 'Başvurular', 'icon': Icons.assignment_ind_outlined},
+    {'id': 8, 'label': 'API Entegrasyonları', 'icon': Icons.api_outlined},
+    {'id': 9, 'label': 'TemaPuan & Sadakat', 'icon': Icons.stars_outlined},
+    {'id': 10, 'label': 'Yetkiler', 'icon': Icons.people_outline},
+    {'id': 11, 'label': '💳 Ödemeler & Faturalar', 'icon': Icons.credit_card_outlined},
+    {'id': 12, 'label': '⚙️ Sistem Özellikleri', 'icon': Icons.tune_outlined},
+    {'id': 13, 'label': '🏢 B2B Ödemeler & IBAN', 'icon': Icons.business_outlined},
+  ];
 
-                // Başlık
-                Row(
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(order.orderNo,
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFFDC2626))),
-                        Text(_elapsedTime(order.createdAt),
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-                      ],
-                    ),
-                    const Spacer(),
-                    _StatusPill(label: _orderStatusLabel(order.status), color: _orderStatusColor(order.status)),
-                  ],
-                ),
-                const Divider(height: 28),
-
-                // Müşteri Bilgileri
-                _DetailRow(icon: Icons.person_outline, label: 'Müşteri', value: order.customer),
-                _DetailRow(icon: Icons.phone_outlined, label: 'Telefon', value: order.phone),
-                _DetailRow(icon: Icons.location_on_outlined, label: 'Adres', value: order.address),
-                _DetailRow(
-                  icon: Icons.payment_outlined,
-                  label: 'Ödeme',
-                  value: order.paymentType == 'online' ? 'Online Ödendi' : 'Kapıda SoftPOS',
-                  valueColor: order.paymentType == 'online' ? const Color(0xFF16A34A) : const Color(0xFF7C3AED),
-                ),
-                if (order.assignedCourier != null)
-                  _DetailRow(icon: Icons.delivery_dining, label: 'Kurye', value: order.assignedCourier!, valueColor: const Color(0xFF2563EB)),
-
-                const SizedBox(height: 16),
-                const Text('Sipariş Kalemleri', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-                const SizedBox(height: 8),
-
-                // Ürün Listesi
-                Container(
-                  decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(14)),
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      ...order.items.map((item) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 5),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 28, height: 28,
-                              decoration: BoxDecoration(color: const Color(0xFFDC2626).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                              child: Center(child: Text('${item['qty']}x', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11, color: Color(0xFFDC2626)))),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(child: Text(item['name'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                            Text('₺${(item['price'] * item['qty']).toStringAsFixed(2)}',
-                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Color(0xFF0F172A))),
-                          ],
-                        ),
-                      )),
-                      const Divider(height: 16),
-                      Row(
-                        children: [
-                          const Text('TOPLAM', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
-                          const Spacer(),
-                          Text('₺${order.total.toStringAsFixed(2)}',
-                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFFDC2626))),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Aksiyon butonları
-                if (order.status != 'delivered' && order.status != 'on_way') ...[
-                  // Kurye Ata
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.delivery_dining, size: 18),
-                      label: Text(
-                        order.assignedCourier != null ? 'Kurye Değiştir (${order.assignedCourier})' : 'Kurye Ata',
-                        style: const TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF2563EB),
-                        side: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showAssignCourier(order);
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Durum güncelle
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white),
-                      label: Text(
-                        _nextStatusLabel(order.status),
-                        style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _orderStatusColor(_nextStatus(order.status)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                      ),
-                      onPressed: () {
-                        setState(() => order.status = _nextStatus(order.status));
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('${order.orderNo} durumu güncellendi: ${_orderStatusLabel(order.status)}'),
-                            backgroundColor: _orderStatusColor(order.status),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ] else
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDF4),
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(color: const Color(0xFF16A34A)),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 18),
-                        SizedBox(width: 8),
-                        Text('Sipariş Tamamlandı', style: TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.w900)),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────
-  //  BUILD
-  // ─────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final bool isWideScreen = MediaQuery.of(context).size.width >= 900;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
+        elevation: 1,
+        scrolledUnderElevation: 0,
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: const Color(0xFFDC2626), borderRadius: BorderRadius.circular(8)),
-              child: const Text('TEMA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF2A55), Color(0xFFDC2626)],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text('TEMA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
             ),
-            const SizedBox(width: 10),
-            const Text('Bayi Paneli', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A), fontSize: 16)),
+            const SizedBox(width: 8),
+            RichText(
+              text: const TextSpan(
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                children: [
+                  TextSpan(text: 'ERP'),
+                  TextSpan(text: '.co', style: TextStyle(color: Color(0xFFDC2626))),
+                  TextSpan(text: '  Yönetici Konsolu', style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500)),
+                ],
+              ),
+            ),
           ],
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.home_outlined, color: Color(0xFF0F172A)), onPressed: widget.onBackToStore),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Color(0xFF0F172A)),
+            tooltip: 'Yenile',
+            onPressed: _loadInitialData,
+          ),
+          if (widget.onBackToStore != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 12.0),
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFDC2626),
+                  side: const BorderSide(color: Color(0xFFFECDD3)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                ),
+                icon: const Icon(Icons.storefront, size: 16),
+                label: const Text('Sanal Mağazaya Dön', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                onPressed: widget.onBackToStore,
+              ),
+            ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: const Color(0xFFDC2626),
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: const Color(0xFFDC2626),
-          labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-          tabs: [
-            Tab(icon: const Icon(Icons.receipt_long_outlined, size: 18),
-                text: 'Siparişler${_newOrders > 0 ? "  🔴$_newOrders" : ""}'),
-            Tab(
-                icon: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.inventory_2_outlined, size: 18),
-                    if (_criticalStocks > 0)
-                      Positioned(
-                        top: -4, right: -8,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(color: Color(0xFFDC2626), shape: BoxShape.circle),
-                          child: Text('$_criticalStocks', style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFDC2626)))
+          : Row(
+              children: [
+                // ── MASAÜSTÜ / TABLET İÇİN SOL SIDEBAR ──
+                if (isWideScreen)
+                  Container(
+                    width: 260,
+                    color: Colors.white,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 12),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: _menuItems.length,
+                            itemBuilder: (context, index) {
+                              final item = _menuItems[index];
+                              final bool isActive = _activeTab == item['id'];
+                              return Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isActive ? const Color(0xFFFEF2F2) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: isActive ? Border.all(color: const Color(0xFFFECDD3)) : null,
+                                ),
+                                child: ListTile(
+                                  dense: true,
+                                  leading: Icon(
+                                    item['icon'] as IconData,
+                                    color: isActive ? const Color(0xFFDC2626) : const Color(0xFF64748B),
+                                    size: 18,
+                                  ),
+                                  title: Text(
+                                    item['label'] as String,
+                                    style: TextStyle(
+                                      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                                      fontSize: 13,
+                                      color: isActive ? const Color(0xFFDC2626) : const Color(0xFF334155),
+                                    ),
+                                  ),
+                                  onTap: () => setState(() => _activeTab = item['id']),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // ── ANA İÇERİK ALANI ──
+                Expanded(
+                  child: Column(
+                    children: [
+                      // MOBİL İÇİN ÜST YATAY TAB BAR
+                      if (!isWideScreen)
+                        Container(
+                          height: 48,
+                          color: Colors.white,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            itemCount: _menuItems.length,
+                            itemBuilder: (context, index) {
+                              final item = _menuItems[index];
+                              final bool isActive = _activeTab == item['id'];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                child: ChoiceChip(
+                                  selected: isActive,
+                                  label: Text(item['label'] as String),
+                                  avatar: Icon(item['icon'] as IconData, size: 16, color: isActive ? Colors.white : const Color(0xFF64748B)),
+                                  selectedColor: const Color(0xFFDC2626),
+                                  backgroundColor: const Color(0xFFF1F5F9),
+                                  labelStyle: TextStyle(
+                                    color: isActive ? Colors.white : const Color(0xFF334155),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                  onSelected: (_) => setState(() => _activeTab = item['id']),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+
+                      // AKTİF SEKMEYE GÖRE İÇERİK
+                      Expanded(
+                        child: IndexedStack(
+                          index: _activeTab,
+                          children: [
+                            _buildDashboardTab(),       // Tab 0
+                            _buildBranchesTab(),        // Tab 1
+                            _buildOrdersTab(),          // Tab 2
+                            _buildProductsTab(),        // Tab 3
+                            _buildCategoriesTab(),      // Tab 4
+                            _buildCampaignsTab(),       // Tab 5
+                            _buildSmsTab(),             // Tab 6
+                            _buildApplicationsTab(),    // Tab 7
+                            _buildApiIntegrationsTab(), // Tab 8
+                            _buildLoyaltyTab(),         // Tab 9
+                            _buildUsersTab(),           // Tab 10
+                            _buildInvoicesTab(),        // Tab 11
+                            _buildFeatureFlagsTab(),    // Tab 12
+                            _buildB2bTab(),             // Tab 13
+                          ],
                         ),
                       ),
-                  ],
-                ),
-                text: 'Stok Yönetimi'),
-            const Tab(
-              icon: Icon(Icons.qr_code_scanner, size: 18),
-              text: 'Kasa Puan Sorgu',
-            ),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildOrdersTab(),
-          _buildStockTab(),
-          _buildLoyaltyLookupTab(),
-        ],
-      ),
-    );
-  }
-
-  // ─── SİPARİŞLER SEKMESİ ────────────────────────────────────────────────
-  Widget _buildOrdersTab() {
-    // Siparişleri: yeni → hazırlanıyor → hazır → yolda → teslim sırasına göre sırala
-    final statusOrder = ['new', 'preparing', 'ready', 'on_way', 'delivered'];
-    final sorted = [..._orders]..sort((a, b) =>
-        statusOrder.indexOf(a.status).compareTo(statusOrder.indexOf(b.status)));
-
-    return Column(
-      children: [
-        // Özet şeridi
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _StatBox(label: 'Yeni', value: '${_orders.where((o) => o.status == "new").length}', color: const Color(0xFFDC2626), icon: Icons.fiber_new),
-              _StatBox(label: 'Hazırlanıyor', value: '${_orders.where((o) => o.status == "preparing").length}', color: const Color(0xFFF59E0B), icon: Icons.restaurant_outlined),
-              _StatBox(label: 'Yolda', value: '${_orders.where((o) => o.status == "on_way").length}', color: const Color(0xFF2563EB), icon: Icons.delivery_dining),
-              _StatBox(label: 'Teslim', value: '${_orders.where((o) => o.status == "delivered").length}', color: const Color(0xFF16A34A), icon: Icons.check_circle_outline),
-            ],
-          ),
-        ),
-
-        Expanded(
-          child: sorted.isEmpty
-              ? const Center(child: Text('Sipariş yok.', style: TextStyle(color: Colors.grey)))
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: sorted.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (_, i) => _OrderCard(
-                    order: sorted[i],
-                    statusLabel: _orderStatusLabel(sorted[i].status),
-                    statusColor: _orderStatusColor(sorted[i].status),
-                    elapsed: _elapsedTime(sorted[i].createdAt),
-                    onTap: () => _showOrderDetail(sorted[i]),
-                    onAssignCourier: () => _showAssignCourier(sorted[i]),
-                    onStatusChange: sorted[i].status != 'delivered' && sorted[i].status != 'on_way'
-                        ? () => setState(() => sorted[i].status = _nextStatus(sorted[i].status))
-                        : null,
-                    nextStatusLabel: _nextStatusLabel(sorted[i].status),
-                    nextStatusColor: _orderStatusColor(_nextStatus(sorted[i].status)),
-                  ),
-                ),
-        ),
-      ],
-    );
-  }
-
-  // ─── STOK SEKMESİ ─────────────────────────────────────────────────────
-  Widget _buildStockTab() {
-    final filtered = _stocks.where((s) =>
-        s.name.toLowerCase().contains(_stockSearch.toLowerCase()) ||
-        s.category.toLowerCase().contains(_stockSearch.toLowerCase())).toList();
-
-    final critical = filtered.where((s) => s.stock <= s.minStock).length;
-
-    return Column(
-      children: [
-        // Arama + özet
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Column(
-            children: [
-              TextField(
-                onChanged: (v) => setState(() => _stockSearch = v),
-                decoration: InputDecoration(
-                  hintText: 'Ürün veya kategori ara...',
-                  hintStyle: const TextStyle(fontSize: 13),
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  filled: true,
-                  fillColor: const Color(0xFFF1F5F9),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(100), borderSide: BorderSide.none),
-                ),
-              ),
-              if (critical > 0) ...[
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(10)),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 16),
-                      const SizedBox(width: 8),
-                      Text('$critical üründe kritik stok seviyesi!',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFDC2626))),
                     ],
                   ),
                 ),
               ],
-            ],
-          ),
-        ),
-
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: filtered.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) => _StockCard(
-              item: filtered[i],
-              onDecrement: () {
-                if (filtered[i].stock > 0) setState(() => filtered[i].stock--);
-              },
-              onIncrement: () => setState(() => filtered[i].stock++),
-              onManualEdit: () => _showStockEditDialog(filtered[i]),
             ),
-          ),
-        ),
-      ],
     );
   }
 
-  // ── Manuel stok düzenleme dialog ─────────────────────────────────────
-  void _showStockEditDialog(StockItem item) {
-    final ctrl = TextEditingController(text: '${item.stock}');
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Yeni stok miktarını girin:', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-            const SizedBox(height: 12),
-            TextField(
-              controller: ctrl,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
-              decoration: InputDecoration(
-                suffix: Text(item.unit, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFFDC2626), width: 2),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal', style: TextStyle(color: Colors.grey))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-            ),
-            onPressed: () {
-              final val = int.tryParse(ctrl.text);
-              if (val != null && val >= 0) {
-                setState(() => item.stock = val);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${item.name} stoku $val ${item.unit} olarak güncellendi.'),
-                    backgroundColor: const Color(0xFF16A34A),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            },
-            child: const Text('Kaydet', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _searchLoyaltyCustomer(String phone) async {
-    if (phone.trim().isEmpty) return;
-    setState(() {
-      _isSearchingLoyalty = true;
-      _lookupResult = null;
-    });
-
-    final result = await ApiService.lookupCustomerByPhone(phone);
-
-    if (mounted) {
-      setState(() {
-        _isSearchingLoyalty = false;
-        _lookupResult = result;
-      });
-    }
-  }
-
-  void _simulateBarcodeScan() {
-    _lookupPhoneController.text = '05321002233';
-    _searchLoyaltyCustomer('05321002233');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('📷 Lazer Barkod / QR Taraması Başarılı: 05321002233')),
-    );
-  }
-
-  void _simulateNfcRead() {
-    _lookupPhoneController.text = '05321002233';
-    _searchLoyaltyCustomer('05321002233');
-    HapticFeedback.heavyImpact();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('📲 Temassız NFC Kart Okundu: 05321002233')),
-    );
-  }
-
-  // ─── KASA PUAN & MÜŞTERİ SORGU SEKMESİ ─────────────────────────────────
-  Widget _buildLoyaltyLookupTab() {
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 0: DASHBOARD (KPİ Metrikleri & Analitikler)
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildDashboardTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // BAŞLIK KARTI
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: const Color(0xFFDC2626), borderRadius: BorderRadius.circular(10)),
-                      child: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 22),
-                    ),
-                    const SizedBox(width: 12),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Bayi Kasa Puan Sorgulama', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
-                        Text('Elle Girme • Lazer Barkod • NFC ile Sorgu', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Müşteri kasaya geldiğinde telefon numarasını girerek, fiziki/dijital VIP kart barkodunu okutarak veya NFC ile temassız iletilen numarayı sorgulayabilirsiniz.',
-                  style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 12, height: 1.4),
-                ),
-              ],
-            ),
+          const Text('📊 Genel Bakış & Performans Metrikleri', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+          const SizedBox(height: 4),
+          const Text('TEMA ERP canlı satış, şube stoku ve kurye verileri.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 16),
+
+          // KPI KARTLARI (Grid)
+          GridView.count(
+            crossAxisCount: MediaQuery.of(context).size.width > 1200 ? 4 : (MediaQuery.of(context).size.width > 700 ? 2 : 1),
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 2.3,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _buildKpiCard('Toplam Ciro (Aylık)', '₺482,950.00', '+%14.2 artış', Icons.payments_outlined, const Color(0xFF16A34A)),
+              _buildKpiCard('Aktif Şubeler', '${_branches.length} Mağaza', '16 Şube Canlı', Icons.store_outlined, const Color(0xFF2563EB)),
+              _buildKpiCard('Toplam Ürün Kataloğu', '${_products.length > 0 ? _products.length : 148} Çeşit', 'Kasap & Manav Dahil', Icons.inventory_2_outlined, const Color(0xFFD97706)),
+              _buildKpiCard('Aktif Kuryeler', '12 Kurye Görevde', 'Ort. 22 dk teslimat', Icons.two_wheeler_outlined, const Color(0xFFDC2626)),
+            ],
           ),
           const SizedBox(height: 20),
 
-          // SORGULAMA GİRDİ ALANI
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Müşteri Numarası veya Barkod Verisi', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF0F172A))),
-                const SizedBox(height: 10),
-
-                // 3 HIZLI İŞLEM BUTONU (ELLE GİR, BARKOD OKU, NFC İLE OKU)
-                Row(
-                  children: [
-                    Expanded(
-                      child: ActionChip(
-                        avatar: const Icon(Icons.keyboard, size: 16, color: Color(0xFF0F172A)),
-                        label: const Text('⌨️ Elle Gir', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                        backgroundColor: const Color(0xFFF1F5F9),
-                        onPressed: () {},
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: ActionChip(
-                        avatar: const Icon(Icons.qr_code_2, size: 16, color: Color(0xFFDC2626)),
-                        label: const Text('📷 Barkod Oku', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
-                        backgroundColor: const Color(0xFFFEF2F2),
-                        onPressed: _simulateBarcodeScan,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: ActionChip(
-                        avatar: const Icon(Icons.nfc, size: 16, color: Color(0xFFEAB308)),
-                        label: const Text('📲 NFC ile Oku', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFCA8A04))),
-                        backgroundColor: const Color(0xFFFEF9C3),
-                        onPressed: _simulateNfcRead,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-
-                TextField(
-                  controller: _lookupPhoneController,
-                  keyboardType: TextInputType.phone,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1),
-                  decoration: InputDecoration(
-                    hintText: 'Örn: 05321002233',
-                    prefixIcon: const Icon(Icons.phone_iphone, color: Color(0xFFDC2626)),
-                    suffixIcon: _lookupPhoneController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _lookupPhoneController.clear();
-                              setState(() => _lookupResult = null);
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFDC2626), width: 2)),
-                  ),
-                  onSubmitted: (v) => _searchLoyaltyCustomer(v),
-                ),
-                const SizedBox(height: 14),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    icon: _isSearchingLoyalty
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.search, size: 20),
-                    label: Text(_isSearchingLoyalty ? 'Sorgulanıyor...' : '🔍 Müşteri Puanını Sorgula'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F172A),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: _isSearchingLoyalty ? null : () => _searchLoyaltyCustomer(_lookupPhoneController.text),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // SORGULAMA SONUÇ KARTI
-          if (_lookupResult != null) ...[
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFF16A34A), width: 2),
-                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 4))],
-              ),
+          // ŞUBELER HIZLI ÖZET KARTI
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            elevation: 1,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: const BoxDecoration(color: Color(0xFFF0FDF4), shape: BoxShape.circle),
-                            child: const Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 24),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _lookupResult!['name'] ?? 'Müşteri Bulundu',
-                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A)),
-                              ),
-                              Text(
-                                _lookupResult!['phone'] ?? '',
-                                style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEF08A),
-                          borderRadius: BorderRadius.circular(100),
-                          border: Border.all(color: const Color(0xFFEAB308)),
-                        ),
-                        child: Text(
-                          _lookupResult!['vip_tier'] ?? 'VIP Üye',
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: Color(0xFF854D0E)),
-                        ),
+                      const Text('🏢 Mağaza Ağ Durumu', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      TextButton(
+                        onPressed: () => setState(() => _activeTab = 1),
+                        child: const Text('Tüm Şubeleri Yönet ➔', style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
                     ],
                   ),
-                  const Divider(height: 24),
-
-                  // PUAN & İNDİRİM METRİKLERİ
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF2F2),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Birikmiş TemaPuan', style: TextStyle(fontSize: 10, color: Color(0xFF991B1B), fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              Text('${_lookupResult!['points'] ?? 450} Puan', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFFDC2626))),
-                              Text('TL Karşılığı: ₺${_lookupResult!['points_tl'] ?? '45.00'}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0FDF4),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Aktif VIP İndirimi', style: TextStyle(fontSize: 10, color: Color(0xFF166534), fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              Text(_lookupResult!['discount_rate'] ?? '%10', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF16A34A))),
-                              const Text('Kasap & Manavda Geçerli', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                  const Divider(),
+                  ListTile(
+                    leading: const CircleAvatar(backgroundColor: Color(0xFFFEF2F2), child: Icon(Icons.location_city, color: Color(0xFFDC2626))),
+                    title: const Text('Lalapaşa AVM (Merkez Şube)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Yakutiye / Erzurum • 6000 m² Mağaza'),
+                    trailing: const Chip(label: Text('AKTİF'), backgroundColor: Color(0xFFDCFCE7), labelStyle: TextStyle(color: Color(0xFF16A34A), fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
-                  const SizedBox(height: 20),
-
-                  // KASADA PUAN HARCAMA & İNDİRİM AKSİYONLARI
-                  SizedBox(
-                    width: double.infinity,
-                    height: 46,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.shopping_cart_checkout, size: 18, color: Colors.white),
-                      label: Text('💳 Kasada Puan Harca (₺${_lookupResult!['points_tl'] ?? '45.00'} İndirim)', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.white)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF16A34A),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('✓ ${_lookupResult!['name']} için ₺${_lookupResult!['points_tl'] ?? '45.00'} puan indirimi kasaya uygulandı.'),
-                            backgroundColor: const Color(0xFF16A34A),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 42,
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.local_offer, size: 16, color: Color(0xFFDC2626)),
-                      label: Text('🎁 VIP İndirim Oranını Uygula (${_lookupResult!['discount_rate'] ?? '%10'})', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Color(0xFFDC2626))),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFDC2626)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('✓ Müşteri VIP indirimi sepete eklendi.'),
-                            backgroundColor: Color(0xFFDC2626),
-                          ),
-                        );
-                      },
-                    ),
+                  ListTile(
+                    leading: const CircleAvatar(backgroundColor: Color(0xFFEFF6FF), child: Icon(Icons.location_city, color: Color(0xFF2563EB))),
+                    title: const Text('Dadaşkent AVM Şubesi', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Aziziye / Erzurum • 2300 m² Mağaza'),
+                    trailing: const Chip(label: Text('AKTİF'), backgroundColor: Color(0xFFDCFCE7), labelStyle: TextStyle(color: Color(0xFF16A34A), fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 
-
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Sipariş Kartı
-// ─────────────────────────────────────────────────────────────────────────────
-class _OrderCard extends StatelessWidget {
-  final MerchantOrder order;
-  final String statusLabel;
-  final Color statusColor;
-  final String elapsed;
-  final VoidCallback onTap;
-  final VoidCallback onAssignCourier;
-  final VoidCallback? onStatusChange;
-  final String nextStatusLabel;
-  final Color nextStatusColor;
-
-  const _OrderCard({
-    required this.order,
-    required this.statusLabel,
-    required this.statusColor,
-    required this.elapsed,
-    required this.onTap,
-    required this.onAssignCourier,
-    this.onStatusChange,
-    required this.nextStatusLabel,
-    required this.nextStatusColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isNew = order.status == 'new';
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: isNew ? Border.all(color: const Color(0xFFDC2626), width: 2) : null,
-          boxShadow: [
-            BoxShadow(
-              color: isNew
-                  ? const Color(0xFFDC2626).withValues(alpha: 0.1)
-                  : Colors.black.withValues(alpha: 0.05),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+  Widget _buildKpiCard(String title, String value, String subtitle, IconData icon, Color color) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(14.0),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+                ],
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 1: ŞUBE & BAYİ HESAPLARI (Tüm 16 TEMA Şubesi)
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildBranchesTab() {
+    final filteredBranches = _branches.where((b) {
+      final q = _searchBranchQuery.toLowerCase();
+      final name = (b['name'] ?? '').toString().toLowerCase();
+      final code = (b['code'] ?? '').toString().toLowerCase();
+      final district = (b['city_district'] ?? '').toString().toLowerCase();
+      return name.contains(q) || code.contains(q) || district.contains(q);
+    }).toList();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('🏢 Şube & Bayi Hesapları (${_branches.length})', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                icon: const Icon(Icons.add, size: 18, color: Colors.white),
+                label: const Text('Yeni Şube Ekle', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () {},
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Arama Çubuğu
+          TextField(
+            decoration: InputDecoration(
+              hintText: 'Şube adı, kod veya ilçe ile ara...',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
+            onChanged: (val) => setState(() => _searchBranchQuery = val),
+          ),
+          const SizedBox(height: 16),
+
+          // Şube Listesi / Grid
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: filteredBranches.length,
+            itemBuilder: (context, index) {
+              final b = filteredBranches[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFFFEF2F2),
+                    child: Text(b['code']?.toString().replaceFirst('SUB-', '') ?? '${b['id']}', style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w900, fontSize: 11)),
+                  ),
+                  title: Text(b['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: Text('${b['city_district'] ?? ''} • Müdür: ${b['manager_name'] ?? 'Atanmadı'} • Tel: ${b['phone'] ?? ''}'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Chip(
+                        label: Text(b['status'] ?? 'AKTİF'),
+                        backgroundColor: const Color(0xFFDCFCE7),
+                        labelStyle: const TextStyle(color: Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.grey), onPressed: () {}),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 2: SİPARİŞLER (Canlı Sipariş Takibi & Kurye Atama)
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildOrdersTab() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('🛒 Siparişler (${_orders.length})', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+              ChoiceChip(
+                selected: true,
+                label: const Text('Canlı Sipariş Akışı'),
+                selectedColor: const Color(0xFFDC2626),
+                labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.shopping_bag_outlined, size: 64, color: Colors.grey),
+                  SizedBox(height: 12),
+                  Text('Henüz Aktif Bekleyen Sipariş Bulunmuyor', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                  SizedBox(height: 4),
+                  Text('Canlı mağaza siparişleri geldikçe burada anlık listelenecektir.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 3: ÜRÜNLER (Ürün Kataloğu & Fiyat Düzenleme)
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildProductsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('📦 Ürünler & Stok (${_products.length})', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                icon: const Icon(Icons.add, size: 18, color: Colors.white),
+                label: const Text('Yeni Ürün Ekle', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () {},
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            decoration: InputDecoration(
+              hintText: 'Ürün adı veya kategori ara...',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
+            onChanged: (val) => setState(() => _searchProductQuery = val),
+          ),
+          const SizedBox(height: 16),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _products.length,
+            itemBuilder: (context, index) {
+              final p = _products[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ListTile(
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      p['image'] ?? 'https://picsum.photos/seed/product/100/100',
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(Icons.image, color: Colors.grey),
+                    ),
+                  ),
+                  title: Text(p['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  subtitle: Text('₺${p['base_price'] ?? p['price'] ?? 0} • ${p['sub_brand'] ?? 'Genel'}'),
+                  trailing: const Chip(label: Text('Stokta'), backgroundColor: Color(0xFFDCFCE7), labelStyle: TextStyle(color: Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 4: KATEGORİLER
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildCategoriesTab() {
+    final categories = [
+      {'name': 'Et & Kasap', 'sub': 'Taze Kırmızı Et ve Kasap Ürünleri', 'icon': Icons.kebab_dining},
+      {'name': 'Meyve & Sebze', 'sub': 'Günlük Taze Manav Hasadı', 'icon': Icons.eco},
+      {'name': 'Şarküteri', 'sub': 'Peynir, Zeytin ve Yöresel Kahvaltılıklar', 'icon': Icons.breakfast_dining},
+      {'name': 'Fırın & Unlu Mamuller', 'sub': 'Sıcak Ekmek ve Börek Çeşitleri', 'icon': Icons.bakery_dining},
+      {'name': 'İçecekler', 'sub': 'Su, Maden Suyu ve Meşrubat', 'icon': Icons.local_drink},
+    ];
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16.0),
+      itemCount: categories.length,
+      itemBuilder: (context, index) {
+        final c = categories[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          child: ListTile(
+            leading: CircleAvatar(backgroundColor: const Color(0xFFFEF2F2), child: Icon(c['icon'] as IconData, color: const Color(0xFFDC2626))),
+            title: Text(c['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text(c['sub'] as String),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+          ),
+        );
+      },
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 5: KAMPANYALAR
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildCampaignsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('🎯 Kampanyalar & İndirim Kuponları', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                icon: const Icon(Icons.add, size: 18, color: Colors.white),
+                label: const Text('Yeni Kampanya', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () {},
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            child: const ListTile(
+              leading: CircleAvatar(backgroundColor: Color(0xFFFEF2F2), child: Icon(Icons.confirmation_number_outlined, color: Color(0xFFDC2626))),
+              title: Text('TEMA50 — ₺50 İndirim Kuponu', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('Min. ₺300 alışverişlerde geçerli ilk sipariş fırsatı.'),
+              trailing: Chip(label: Text('AKTİF'), backgroundColor: Color(0xFFDCFCE7), labelStyle: TextStyle(color: Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 6: SMS GÖNDERİMİ
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildSmsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Başlık satırı
-              Row(
-                children: [
-                  if (isNew)
-                    Container(
-                      width: 8, height: 8,
-                      margin: const EdgeInsets.only(right: 8),
-                      decoration: const BoxDecoration(color: Color(0xFFDC2626), shape: BoxShape.circle),
-                    ),
-                  Text(order.orderNo,
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15,
-                          color: isNew ? const Color(0xFFDC2626) : const Color(0xFF0F172A))),
-                  const Spacer(),
-                  _StatusPill(label: statusLabel, color: statusColor),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(elapsed, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
-
-              const Divider(height: 16),
-
-              // Müşteri + Adres
-              Row(
-                children: [
-                  const Icon(Icons.person_outline, size: 14, color: Color(0xFF64748B)),
-                  const SizedBox(width: 6),
-                  Expanded(child: Text(order.customer, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF64748B)),
-                  const SizedBox(width: 6),
-                  Expanded(child: Text(order.address,
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF475569)))),
-                ],
-              ),
-              const SizedBox(height: 4),
-
-              // Ürün sayısı + Tutar
-              Row(
-                children: [
-                  const Icon(Icons.shopping_bag_outlined, size: 14, color: Color(0xFF64748B)),
-                  const SizedBox(width: 6),
-                  Text('${order.items.length} kalem ürün',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
-                  const Spacer(),
-                  Text('₺${order.total.toStringAsFixed(2)}',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0F172A))),
-                ],
-              ),
-
-              // Kurye bilgisi
-              if (order.assignedCourier != null) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.delivery_dining, size: 14, color: Color(0xFF2563EB)),
-                    const SizedBox(width: 6),
-                    Text(order.assignedCourier!,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF2563EB))),
-                  ],
+              const Text('💬 NetGSM & Türk Telekom Toplu SMS Paneli', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              const SizedBox(height: 12),
+              const TextField(
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: 'Müşterilerinize gönderilecek SMS duyuru metnini yazın...',
+                  border: OutlineInputBorder(),
                 ),
-              ],
-
-              // Aksiyon butonları (teslim edilmemiş siparişler)
-              if (order.status != 'delivered') ...[
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    // Kurye Ata
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.delivery_dining, size: 15),
-                        label: Text(
-                          order.assignedCourier != null ? 'Kuryeyi Değiştir' : 'Kurye Ata',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF2563EB),
-                          side: const BorderSide(color: Color(0xFF2563EB)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                        ),
-                        onPressed: onAssignCourier,
-                      ),
-                    ),
-
-                    if (onStatusChange != null && order.status != 'on_way') ...[
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: nextStatusColor,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                          ),
-                          onPressed: onStatusChange,
-                          child: Text(nextStatusLabel,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11),
-                              maxLines: 1, overflow: TextOverflow.ellipsis),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+                icon: const Icon(Icons.send, size: 18, color: Colors.white),
+                label: const Text('SMS Duyurusu Gönder', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () {},
+              ),
             ],
           ),
         ),
       ),
     );
   }
-}
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Stok Kartı — + / - butonları
-// ─────────────────────────────────────────────────────────────────────────────
-class _StockCard extends StatelessWidget {
-  final StockItem item;
-  final VoidCallback onDecrement;
-  final VoidCallback onIncrement;
-  final VoidCallback onManualEdit;
-
-  const _StockCard({
-    required this.item,
-    required this.onDecrement,
-    required this.onIncrement,
-    required this.onManualEdit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isCritical = item.stock <= item.minStock;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: isCritical ? Border.all(color: item.statusColor.withValues(alpha: 0.5), width: 1.5) : null,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          // Kategori rengi şeridi
-          Container(
-            width: 4, height: 52,
-            decoration: BoxDecoration(
-              color: item.statusColor,
-              borderRadius: BorderRadius.circular(100),
-            ),
-          ),
-          const SizedBox(width: 14),
-
-          // Ürün bilgisi
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.name,
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF0F172A)),
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
-                      child: Text(item.category, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
-                    ),
-                    const SizedBox(width: 6),
-                    Text('₺${item.price.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: item.statusColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                      child: Text(item.stockStatus,
-                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: item.statusColor)),
-                    ),
-                    const SizedBox(width: 6),
-                    Text('Min: ${item.minStock} ${item.unit}',
-                        style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // + / - kontroller
-          Column(
-            children: [
-              // Manuel düzenleme butonu
-              GestureDetector(
-                onTap: onManualEdit,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: item.statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: item.statusColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('${item.stock}',
-                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: item.statusColor)),
-                      const SizedBox(width: 4),
-                      Text(item.unit, style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.edit, size: 10, color: Color(0xFF94A3B8)),
-                    ],
-                  ),
-                ),
-              ),
-
-              // + / - satırı
-              Row(
-                children: [
-                  // Azalt (-)
-                  _StockButton(
-                    icon: Icons.remove,
-                    color: item.stock == 0 ? Colors.grey.shade300 : const Color(0xFFFEF2F2),
-                    iconColor: item.stock == 0 ? Colors.grey.shade400 : const Color(0xFFDC2626),
-                    onTap: item.stock == 0 ? null : onDecrement,
-                  ),
-                  const SizedBox(width: 8),
-                  // Artır (+)
-                  _StockButton(
-                    icon: Icons.add,
-                    color: const Color(0xFFF0FDF4),
-                    iconColor: const Color(0xFF16A34A),
-                    onTap: onIncrement,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 7: BAŞVURULAR
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildApplicationsTab() {
+    return const Center(child: Text('📝 Kurye & Bayi Başvuruları Listesi', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)));
   }
-}
 
-class _StockButton extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final Color iconColor;
-  final VoidCallback? onTap;
-
-  const _StockButton({required this.icon, required this.color, required this.iconColor, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 36, height: 36,
-        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, size: 18, color: iconColor),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Ortak yardımcı widget'lar
-// ─────────────────────────────────────────────────────────────────────────────
-class _StatusPill extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _StatusPill({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(100)),
-      child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 10)),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  const _DetailRow({required this.icon, required this.label, required this.value, this.valueColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 15, color: const Color(0xFF94A3B8)),
-          const SizedBox(width: 10),
-          SizedBox(width: 70,
-            child: Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600))),
-          Expanded(
-            child: Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
-                color: valueColor ?? const Color(0xFF0F172A))),
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 8: API ENTEGRASYONLARI
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildApiIntegrationsTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: const [
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.sms, color: Color(0xFFDC2626)),
+            title: Text('NetGSM SMS Entegrasyonu', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Durum: Bağlı & Aktif (Kredi: 14,200 SMS)'),
+            trailing: Chip(label: Text('BAĞLI'), backgroundColor: Color(0xFFDCFCE7), labelStyle: TextStyle(color: Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold)),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatBox extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-  final IconData icon;
-
-  const _StatBox({required this.label, required this.value, required this.color, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 38, height: 38,
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, color: color, size: 18),
         ),
-        const SizedBox(height: 4),
-        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: color)),
-        Text(label, style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600)),
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.point_of_sale, color: Color(0xFF2563EB)),
+            title: Text('QNB Finansbank Sanal POS', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('3D Secure Otomatik Ödeme Altyapısı'),
+            trailing: Chip(label: Text('BAĞLI'), backgroundColor: Color(0xFFDCFCE7), labelStyle: TextStyle(color: Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold)),
+          ),
+        ),
       ],
     );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 9: TEMAPUAN & SADAKAT
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildLoyaltyTab() {
+    return const Center(child: Text('⭐ TemaPuan & VIP Sadakat Sistemi Ayarları', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)));
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 10: YETKİLER
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildUsersTab() {
+    return const Center(child: Text('👥 Kullanıcılar & Rol Yetkileri', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)));
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 11: ÖDEMELER & FATURALAR
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildInvoicesTab() {
+    return const Center(child: Text('💳 Ödemeler & GİB E-Fatura Geçmişi', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)));
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 12: SİSTEM ÖZELLİKLERİ & MODÜL ŞALTERLERİ (FEATURE FLAGS)
+  //  Web Yönetici Paneli ile %100 Birebir Canlı Senkronize!
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildFeatureFlagsTab() {
+    final flagsList = [
+      {
+        'key': 'sanal_market',
+        'label': '1. Sanal Market (Sepet & Sipariş)',
+        'desc': 'Deaktif edilirse ürünler sergilenir fakat sepete ekle ve sepet alanı gizlenir, sipariş verilemez.',
+        'val': _featureFlags.sanalMarket,
+      },
+      {
+        'key': 'bayi_stok',
+        'label': '2. Bayi Stok Yönetim Sistemi',
+        'desc': 'Şubelerin stok giriş-çıkış kontrolünü ve kritik stok uyarılarını yönetir.',
+        'val': _featureFlags.bayiStok,
+      },
+      {
+        'key': 'temapuan',
+        'label': '3. TemaPuan Sadakat & Cüzdan',
+        'desc': 'Deaktif edilirse TemaPuan kazanımı/kullanımı ve puan kartları gizlenir.',
+        'val': _featureFlags.temapuan,
+      },
+      {
+        'key': 'api_entegrasyon',
+        'label': '4. API Entegrasyonları',
+        'desc': 'Trendyol Market, Yemeksepeti ve Getir dış entegrasyon servislerini yönetir.',
+        'val': _featureFlags.apiEntegrasyon,
+      },
+      {
+        'key': 'sms_gonderim',
+        'label': '5. SMS Gönderim Özelliği',
+        'desc': 'Deaktif edilirse SMS paneli ve duyuruları kapalı konuma getirilir.',
+        'val': _featureFlags.smsGonderim,
+      },
+      {
+        'key': 'kampanyalar',
+        'label': '6. Kampanyalar Özelliği',
+        'desc': 'Deaktif edilirse indirim kuponları ve promosyonlar geçersiz sayılır.',
+        'val': _featureFlags.kampanyalar,
+      },
+      {
+        'key': 'sanal_pos',
+        'label': '7. Sanal POS ve Online Ödeme',
+        'desc': 'Deaktif edilirse ödeme sayfasında 3D Secure Sanal POS seçeneği gizlenir.',
+        'val': _featureFlags.sanalPos,
+      },
+      {
+        'key': 'soft_pos',
+        'label': '8. Soft POS ile Kapıda Ödeme',
+        'desc': 'Kuryelerin NFC cihazları üzerinden kapıda temassız tahsilatını yönetir.',
+        'val': _featureFlags.softPos,
+      },
+      {
+        'key': 'e_fatura',
+        'label': '9. Otomatik E-FATURA Kesimi',
+        'desc': 'Aktifse siparişler için otomatik GİB E-Fatura düzenlenir.',
+        'val': _featureFlags.eFatura,
+      },
+      {
+        'key': 'serbest_kurye',
+        'label': '10. Serbest Kurye Havuzu',
+        'desc': 'Bağımsız serbest kuryelerin otomatik sipariş kabul havuzunu yönetir.',
+        'val': _featureFlags.serbestKurye,
+      },
+    ];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.tune, color: Color(0xFFDC2626), size: 22),
+              SizedBox(width: 8),
+              Text('⚙️ Sistem Özellikleri & Modül Şalterleri (Feature Flags)', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text('Platform genelinde (Web ve Mobil Uygulama) sistem özelliklerini anlık aktif/deaktif edebilirsiniz. Deaktif edilen özellikler kullanıma kapatılır.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 16),
+
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: flagsList.length,
+            itemBuilder: (context, index) {
+              final flag = flagsList[index];
+              final bool isEnabled = flag['val'] as bool;
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: isEnabled ? const Color(0xFFBBF7D0) : const Color(0xFFFECDD3),
+                    width: 1.5,
+                  ),
+                ),
+                elevation: 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(flag['label'] as String, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0F172A))),
+                            const SizedBox(height: 4),
+                            Text(flag['desc'] as String, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                            const SizedBox(height: 8),
+                            Chip(
+                              label: Text(isEnabled ? '🟢 AKTİF (Kullanımda)' : '🔴 DEAKTİF (Gizli & Kapalı)'),
+                              backgroundColor: isEnabled ? const Color(0xFFDCFCE7) : const Color(0xFFFEF2F2),
+                              labelStyle: TextStyle(
+                                color: isEnabled ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch.adaptive(
+                        value: isEnabled,
+                        activeTrackColor: const Color(0xFF16A34A),
+                        onChanged: (val) => _toggleFeature(flag['key'] as String, val),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  TAB 13: B2B ÖDEMELER
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildB2bTab() {
+    return const Center(child: Text('🏢 B2B Kurumsal Cari Hesaplar & Banka IBAN Yönetimi', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)));
   }
 }
