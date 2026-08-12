@@ -8,6 +8,7 @@ import '../widgets/tema_logo_painter.dart';
 
 class CustomerStorefrontPage extends StatefulWidget {
   final Map<String, dynamic>? user;
+  final VoidCallback? onOpenLogin;
   final VoidCallback? onOpenAdmin;
   final VoidCallback? onOpenMerchant;
   final VoidCallback? onOpenCourier;
@@ -16,6 +17,7 @@ class CustomerStorefrontPage extends StatefulWidget {
   const CustomerStorefrontPage({
     super.key,
     this.user,
+    this.onOpenLogin,
     this.onOpenAdmin,
     this.onOpenMerchant,
     this.onOpenCourier,
@@ -555,24 +557,44 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
               ),
               onPressed: () => _showCartBottomSheet(context),
             ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.person, color: Color(0xFF0F172A)),
-            onSelected: (value) {
-              if (value == 'admin' && widget.onOpenAdmin != null) widget.onOpenAdmin!();
-              if (value == 'merchant' && widget.onOpenMerchant != null) widget.onOpenMerchant!();
-              if (value == 'courier' && widget.onOpenCourier != null) widget.onOpenCourier!();
-              if (value == 'logout' && widget.onLogout != null) widget.onLogout!();
-            },
-            itemBuilder: (context) => [
-              if (widget.user?['role'] == 'SuperAdmin')
-                const PopupMenuItem(value: 'admin', child: Text('Yönetici Konsolu')),
-              if (widget.user?['role'] == 'Merchant' || widget.user?['role'] == 'SuperAdmin')
-                const PopupMenuItem(value: 'merchant', child: Text('Bayi Paneli')),
-              if (widget.user?['role'] == 'Courier')
-                const PopupMenuItem(value: 'courier', child: Text('Kurye Paneli')),
-              const PopupMenuItem(value: 'logout', child: Text('Çıkış Yap')),
-            ],
-          ),
+          if (widget.user == null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: TextButton.icon(
+                style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+                icon: const Icon(Icons.login_rounded, size: 18),
+                label: const Text('Giriş Yap', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                onPressed: widget.onOpenLogin,
+              ),
+            )
+          else
+            PopupMenuButton<String>(
+              icon: CircleAvatar(
+                radius: 14,
+                backgroundColor: const Color(0xFFFEF2F2),
+                child: Text(
+                  (widget.user!['name'] ?? 'K')[0].toUpperCase(),
+                  style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              ),
+              onSelected: (value) {
+                if (value == 'admin' && widget.onOpenAdmin != null) widget.onOpenAdmin!();
+                if (value == 'merchant' && widget.onOpenMerchant != null) widget.onOpenMerchant!();
+                if (value == 'courier' && widget.onOpenCourier != null) widget.onOpenCourier!();
+                if (value == 'logout' && widget.onLogout != null) widget.onLogout!();
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(enabled: false, child: Text('👤 ${widget.user!['name'] ?? 'Kullanıcı'}', style: const TextStyle(fontWeight: FontWeight.bold))),
+                const PopupMenuDivider(),
+                if (widget.user?['role'] == 'SuperAdmin')
+                  const PopupMenuItem(value: 'admin', child: Text('⚙️ Yönetici Konsolu')),
+                if (widget.user?['role'] == 'Merchant' || widget.user?['role'] == 'SuperAdmin')
+                  const PopupMenuItem(value: 'merchant', child: Text('🏪 Bayi Paneli')),
+                if (widget.user?['role'] == 'Courier')
+                  const PopupMenuItem(value: 'courier', child: Text('🛵 Kurye Paneli')),
+                const PopupMenuItem(value: 'logout', child: Text('🚪 Çıkış Yap')),
+              ],
+            ),
         ],
       ),
       body: _buildCurrentTabBody(),
@@ -581,6 +603,10 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   }
 
   void _handleNavTap(int id) {
+    if (id == 4 && widget.user == null) {
+      if (widget.onOpenLogin != null) widget.onOpenLogin!();
+      return;
+    }
     if (id == 2) {
       // Sanal Market kapalıysa sepet açılmaz, uyarı gösterilir
       if (!_flags.sanalMarket) {

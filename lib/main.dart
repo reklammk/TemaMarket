@@ -113,6 +113,7 @@ class _TemasanAppState extends State<TemasanApp> {
       default:
         return CustomerStorefrontPage(
           user: _currentUser,
+          onOpenLogin: () => setState(() => _currentRoute = 'auth'),
           onOpenAdmin: () => setState(() => _currentRoute = 'admin'),
           onOpenMerchant: () => setState(() => _currentRoute = 'merchant'),
           onOpenCourier: () => setState(() => _currentRoute = 'courier'),
