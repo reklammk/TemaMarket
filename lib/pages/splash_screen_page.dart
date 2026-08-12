@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:video_player/video_player.dart';
+import 'dart:async';
 
 class SplashScreenPage extends StatefulWidget {
   final VoidCallback onFinish;
@@ -11,83 +11,60 @@ class SplashScreenPage extends StatefulWidget {
   State<SplashScreenPage> createState() => _SplashScreenPageState();
 }
 
-class _SplashScreenPageState extends State<SplashScreenPage> {
-  VideoPlayerController? _controller;
-  bool _isVideoReady = false;
-  bool _isDisposed = false;
-  bool _finishedCalled = false;
+class _SplashScreenPageState extends State<SplashScreenPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _animController;
+  late final Animation<double> _fadeAnim;
+  late final Animation<double> _scaleAnim;
+  late final Animation<double> _pulseAnim;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    // Tam ekran immersive mod
     try {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     } catch (_) {}
 
-    // Güvenli yükleme: İlk frame çizildikten sonra video başlat
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_isDisposed) {
-        _initVideo();
-      }
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+
+    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+      ),
+    );
+
+    _scaleAnim = Tween<double>(begin: 0.75, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
+      ),
+    );
+
+    _pulseAnim = Tween<double>(begin: 0.98, end: 1.02).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: const Interval(0.6, 1.0, curve: Curves.easeInOutSine),
+      ),
+    );
+
+    _animController.forward();
+
+    // 2.5 saniye sonra ana sayfaya geç
+    _timer = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted) _finish();
     });
-
-    // Güvenlik zaman aşımı: 10 saniye sonra zorla geç
-    Future.delayed(const Duration(seconds: 10), () {
-      if (mounted && !_isDisposed && !_finishedCalled) {
-        _finish();
-      }
-    });
-  }
-
-  Future<void> _initVideo() async {
-    try {
-      final controller = VideoPlayerController.asset('assets/videos/tema_splash.mp4');
-      _controller = controller;
-
-      await controller.initialize();
-
-      if (_isDisposed || !mounted) {
-        await controller.pause();
-        await controller.dispose();
-        _controller = null;
-        return;
-      }
-
-      controller.addListener(() {
-        if (_isDisposed || !mounted || _finishedCalled) return;
-        try {
-          if (controller.value.isInitialized &&
-              controller.value.position >= controller.value.duration &&
-              controller.value.duration > Duration.zero) {
-            _finish();
-          }
-        } catch (_) {}
-      });
-
-      await controller.setVolume(1.0);
-      await controller.setLooping(false);
-      await controller.play();
-
-      if (mounted && !_isDisposed) {
-        setState(() => _isVideoReady = true);
-      }
-    } catch (e) {
-      debugPrint('Splash video init error: $e');
-      if (mounted && !_isDisposed && !_finishedCalled) {
-        _finish();
-      }
-    }
   }
 
   void _finish() {
-    if (_finishedCalled) return;
-    _finishedCalled = true;
-
+    _timer?.cancel();
     try {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     } catch (_) {}
-
     if (mounted) {
       widget.onFinish();
     }
@@ -95,103 +72,173 @@ class _SplashScreenPageState extends State<SplashScreenPage> {
 
   @override
   void dispose() {
-    _isDisposed = true;
+    _timer?.cancel();
     try {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     } catch (_) {}
-
-    if (_controller != null) {
-      final controllerToDispose = _controller;
-      _controller = null;
-      try {
-        controllerToDispose?.pause();
-        controllerToDispose?.dispose();
-      } catch (e) {
-        debugPrint('Error disposing splash controller: $e');
-      }
-    }
+    _animController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF0F172A),
       body: GestureDetector(
-        onTap: _finish, // Ekrana tıklayarak da geçilebilir
-        child: SizedBox.expand(
-          child: (_isVideoReady && _controller != null && _controller!.value.isInitialized)
-              ? FittedBox(
-                  fit: BoxFit.cover,
-                  child: SizedBox(
-                    width: _controller!.value.size.width > 0 ? _controller!.value.size.width : 1080,
-                    height: _controller!.value.size.height > 0 ? _controller!.value.size.height : 1920,
-                    child: VideoPlayer(_controller!),
-                  ),
-                )
-              : _buildFallbackSplash(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFallbackSplash() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFF1F1),
-            Color(0xFFFFE4E4),
-            Color(0xFFFFC9C9),
-          ],
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Spacer(flex: 3),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-            decoration: BoxDecoration(
-              color: const Color(0xFFDC2626),
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFDC2626).withAlpha(80),
-                  blurRadius: 40,
-                  spreadRadius: 4,
-                  offset: const Offset(0, 12),
-                ),
+        onTap: _finish,
+        child: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF1E293B),
+                Color(0xFF0F172A),
+                Color(0xFF450A0A),
               ],
             ),
-            child: const Text(
-              'TEMA',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 42,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 4,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Spacer(flex: 3),
+
+              // Logo & Rozet Animasyonu
+              AnimatedBuilder(
+                animation: _animController,
+                builder: (context, child) {
+                  final scale = _scaleAnim.value * _pulseAnim.value;
+                  return Opacity(
+                    opacity: _fadeAnim.value,
+                    child: Transform.scale(
+                      scale: scale,
+                      child: child,
+                    ),
+                  );
+                },
+                child: Column(
+                  children: [
+                    // Görsel Logo
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFDC2626).withValues(alpha: 0.5),
+                            blurRadius: 50,
+                            spreadRadius: 8,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Image.asset(
+                        'assets/logo.png',
+                        width: 110,
+                        height: 110,
+                        fit: BoxFit.contain,
+                        errorBuilder: (ctx, err, stack) {
+                          return Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDC2626),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                'TEMA',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Başlık
+                    const Text(
+                      'TEMA MARKET',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 3,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Slogan
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDC2626).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(100),
+                        border: Border.all(
+                          color: const Color(0xFFDC2626).withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: const Text(
+                        'Erzurum\'un Güvenilir Sanal Marketi',
+                        style: TextStyle(
+                          color: Color(0xFFFECACA),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+
+              const Spacer(flex: 3),
+
+              // Yükleniyor Göstergesi
+              AnimatedBuilder(
+                animation: _animController,
+                builder: (context, child) {
+                  return Opacity(
+                    opacity: _fadeAnim.value,
+                    child: child,
+                  );
+                },
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFDC2626)),
+                        strokeWidth: 2.5,
+                        backgroundColor: Colors.white.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Market Yükleniyor...',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 48),
+            ],
           ),
-          const SizedBox(height: 20),
-          const Text(
-            'Market',
-            style: TextStyle(
-              color: Color(0xFFDC2626),
-              fontSize: 36,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const Spacer(flex: 3),
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFDC2626)),
-            strokeWidth: 2.5,
-          ),
-          const SizedBox(height: 48),
-        ],
+        ),
       ),
     );
   }

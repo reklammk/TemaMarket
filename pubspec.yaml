@@ -1,7 +1,7 @@
 name: tema_market
 description: "TEMA Market Mobil Uygulaması"
 publish_to: 'none'
-version: 1.0.0+3
+version: 1.0.0+4
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -19,7 +19,6 @@ dependencies:
   google_fonts: ^6.1.0
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
-  video_player: ^2.9.2
 
 dev_dependencies:
   flutter_test:
@@ -30,4 +29,3 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo.png
-    - assets/videos/tema_splash.mp4
