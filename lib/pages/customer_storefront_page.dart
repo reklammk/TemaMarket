@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import '../services/feature_flags_service.dart';
+import '../services/api_service.dart';
+import '../widgets/tema_logo_painter.dart';
 
 class CustomerStorefrontPage extends StatefulWidget {
   final Map<String, dynamic>? user;
@@ -27,12 +29,68 @@ class CustomerStorefrontPage extends StatefulWidget {
 class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   FeatureFlags _flags = const FeatureFlags();
   Timer? _flagsTimer;
+  List<Map<String, dynamic>> _liveProducts = [];
 
   @override
   void initState() {
     super.initState();
     _loadFlags();
-    _flagsTimer = Timer.periodic(const Duration(seconds: 2), (_) => _loadFlags());
+    _scheduleNextFlagPoll();
+    _loadProductsFromApi();
+    _loadBranchesFromApi();
+  }
+
+  Future<void> _loadBranchesFromApi() async {
+    try {
+      final list = await ApiService.fetchBranches();
+      if (mounted && list.isNotEmpty) {
+        setState(() {
+          _branchDetails = list.map((b) => {
+            'name': b['name']?.toString() ?? 'Şube',
+            'district': b['address']?.toString() ?? b['district']?.toString() ?? 'Erzurum',
+            'phone': b['phone']?.toString() ?? '0 (442) 234 11 22',
+            'status': (b['is_active'] == false) ? 'Şu an Kapalı' : 'AÇIK - Canlı Teslimat',
+          }).toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadProductsFromApi() async {
+    try {
+      final list = await ApiService.fetchProducts();
+      if (mounted && list.isNotEmpty) {
+        setState(() {
+          _liveProducts = list.map((item) => {
+            'id': item['id'],
+            'name': item['name'],
+            'price': (item['base_price'] is num)
+                ? (item['base_price'] as num).toDouble()
+                : double.tryParse(item['base_price']?.toString() ?? '0') ?? 0.0,
+            'orig_price': item['original_price'] != null
+                ? ((item['original_price'] is num)
+                    ? (item['original_price'] as num).toDouble()
+                    : double.tryParse(item['original_price'].toString()))
+                : null,
+            'sub_brand': item['sub_brand'] ?? item['category']?['name'] ?? 'Genel',
+            'image': item['image'] ?? 'https://picsum.photos/seed/product/400/400',
+          }).toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  /// Backoff destekli adaptive polling:
+  /// Sunucu açıkken 2sn, kapalıyken 10-30sn'ye çıkar
+  void _scheduleNextFlagPoll() {
+    _flagsTimer?.cancel();
+    _flagsTimer = Timer(
+      FeatureFlagsService.recommendedPollInterval,
+      () async {
+        await _loadFlags();
+        if (mounted) _scheduleNextFlagPoll(); // bir sonraki interval'i yeniden hesapla
+      },
+    );
   }
 
   @override
@@ -44,12 +102,16 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   Future<void> _loadFlags() async {
     final flags = await FeatureFlagsService.loadFlags();
     if (mounted) {
-      setState(() {
-        _flags = flags;
-        if (!flags.sanalMarket && _cart.isNotEmpty) {
-          _cart.clear();
-        }
-      });
+      // Sadece değiştiyse setState çağır (gereksiz rebuild'i önle)
+      if (!flags.isIdenticalTo(_flags) ||
+          (!flags.sanalMarket && _cart.isNotEmpty)) {
+        setState(() {
+          _flags = flags;
+          if (!flags.sanalMarket && _cart.isNotEmpty) {
+            _cart.clear();
+          }
+        });
+      }
     }
   }
 
@@ -76,13 +138,17 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   // ignore: unused_element
   double get _userPointsTL => _userPoints * 0.10;
 
-  final List<Map<String, String>> _branchDetails = [
+  List<Map<String, String>> _branchDetails = [
     {'name': 'Lalapaşa AVM (Yakutiye)', 'district': 'Yakutiye / Erzurum', 'phone': '0 (442) 234 11 22', 'status': 'AÇIK - Canlı Teslimat'},
     {'name': 'Pasinler (Pasinler)', 'district': 'Pasinler / Erzurum', 'phone': '0 (442) 661 22 33', 'status': 'AÇIK - Canlı Teslimat'},
     {'name': 'Yenişehir AVM (Palandöken)', 'district': 'Palandöken / Erzurum', 'phone': '0 (442) 316 44 55', 'status': 'AÇIK - Canlı Teslimat'},
     {'name': 'Kelkit-1 (Gümüşhane)', 'district': 'Kelkit / Gümüşhane', 'phone': '0 (456) 317 10 20', 'status': 'AÇIK - Canlı Teslimat'},
     {'name': 'Dadaşkent AVM (Aziziye)', 'district': 'Aziziye / Erzurum', 'phone': '0 (442) 327 99 88', 'status': 'AÇIK - Canlı Teslimat'},
     {'name': 'Palandöken AVM (Palandöken)', 'district': 'Palandöken / Erzurum', 'phone': '0 (442) 317 88 99', 'status': 'AÇIK - Canlı Teslimat'},
+    {'name': 'Oltu Şubesi (Oltu)', 'district': 'Oltu / Erzurum', 'phone': '0 (442) 816 12 34', 'status': 'AÇIK - Canlı Teslimat'},
+    {'name': 'Ilıca AVM (Aziziye)', 'district': 'Aziziye / Erzurum', 'phone': '0 (442) 631 55 66', 'status': 'AÇIK - Canlı Teslimat'},
+    {'name': 'Şükrüpaşa Şubesi (Yakutiye)', 'district': 'Yakutiye / Erzurum', 'phone': '0 (442) 242 77 88', 'status': 'AÇIK - Canlı Teslimat'},
+    {'name': 'Horasan Şubesi (Horasan)', 'district': 'Horasan / Erzurum', 'phone': '0 (442) 711 33 44', 'status': 'AÇIK - Canlı Teslimat'},
   ];
 
   final List<Map<String, dynamic>> _popularProducts = [
@@ -219,34 +285,179 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   ];
 
 
+  // ignore: unused_element
   double get _cartTotal => _cart.fold(0.0, (sum, item) => sum + (item['price'] * item['qty']));
 
   void _addToCart(Map<String, dynamic> product) {
+    // Sanal Market kapalıysa HİÇBİR KOŞULDA sepete ekleme yapılmaz
     if (!_flags.sanalMarket) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🔒 Sanal Market siparişe kapalıdır. Ürünler şubelerimizde fırsat ürünü olarak satılmaktadır.'),
-          backgroundColor: Color(0xFFDC2626),
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.lock_outlined, color: Colors.white, size: 18),
+              SizedBox(width: 8),
+              Expanded(child: Text('Sanal Market şu an siparişe kapalıdır. Ürünlerimizi şubelerimizde bulabilirsiniz.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+            ],
+          ),
+          backgroundColor: const Color(0xFFDC2626),
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 3),
         ),
       );
-      return;
+      return; // HARD BLOCK — asla sepete ekleme
     }
     setState(() {
       final index = _cart.indexWhere((i) => i['id'] == product['id']);
       if (index >= 0) {
-        _cart[index]['qty'] += 1;
+        _cart[index]['qty'] = (_cart[index]['qty'] as int) + 1;
       } else {
         _cart.add({...product, 'qty': 1});
       }
     });
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${product['name']} sepete eklendi.'),
         duration: const Duration(seconds: 1),
         backgroundColor: const Color(0xFF16A34A),
       ),
+    );
+  }
+
+  void _showBranchPickerBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        String filterQuery = '';
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filteredBranches = _branchDetails.where((b) {
+              if (filterQuery.trim().isEmpty) return true;
+              return b['name']!.toLowerCase().contains(filterQuery.toLowerCase()) ||
+                     b['district']!.toLowerCase().contains(filterQuery.toLowerCase());
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Column(
+                children: [
+                  // Handle Bar
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(4)),
+                  ),
+                  Row(
+                    children: [
+                      const Icon(Icons.store_rounded, color: Color(0xFFDC2626), size: 24),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Teslimat Şubesi Seçin',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.grey),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Arama Çubuğu
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: TextField(
+                      onChanged: (val) => setModalState(() => filterQuery = val),
+                      decoration: const InputDecoration(
+                        icon: Icon(Icons.search, color: Colors.grey, size: 20),
+                        hintText: 'Şube veya ilçe ara...',
+                        hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  // Kaydırılabilir (Scrollable) Şube Listesi
+                  Expanded(
+                    child: filteredBranches.isEmpty
+                        ? const Center(child: Text('Aradığınız şube bulunamadı.'))
+                        : ListView.separated(
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: filteredBranches.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final b = filteredBranches[index];
+                              final bool isSelected = b['name'] == _selectedBranch;
+
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.location_on,
+                                    color: isSelected ? const Color(0xFFDC2626) : Colors.grey[600],
+                                    size: 22,
+                                  ),
+                                ),
+                                title: Text(
+                                  b['name']!,
+                                  style: TextStyle(
+                                    fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                                    fontSize: 14,
+                                    color: isSelected ? const Color(0xFFDC2626) : const Color(0xFF0F172A),
+                                  ),
+                                ),
+                                subtitle: Row(
+                                  children: [
+                                    Text(b['district']!, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFDCFCE7),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        b['status']!,
+                                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                trailing: isSelected
+                                    ? const Icon(Icons.check_circle, color: Color(0xFFDC2626), size: 22)
+                                    : null,
+                                onTap: () {
+                                  setState(() => _selectedBranch = b['name']!);
+                                  Navigator.pop(context);
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -323,28 +534,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 1,
-        title: Row(
-          children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 28,
-              errorBuilder: (context, error, stackTrace) => Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: const Color(0xFFDC2626), borderRadius: BorderRadius.circular(20)),
-                    child: const Text('TEMA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    !_flags.sanalMarket ? 'Market' : 'sanalmarket',
-                    style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w900, fontSize: 15),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        title: HeaderTemaLogo(isSanalMarket: _flags.sanalMarket),
         actions: [
           if (_flags.sanalMarket)
             IconButton(
@@ -392,6 +582,24 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
 
   void _handleNavTap(int id) {
     if (id == 2) {
+      // Sanal Market kapalıysa sepet açılmaz, uyarı gösterilir
+      if (!_flags.sanalMarket) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.lock_outlined, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Expanded(child: Text('Sanal Market şu an siparişe kapalıdır.', style: TextStyle(fontWeight: FontWeight.bold))),
+              ],
+            ),
+            backgroundColor: const Color(0xFFDC2626),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+        return;
+      }
       _showCartBottomSheet(context);
     } else {
       setState(() {
@@ -501,7 +709,8 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
 
   // 🏠 TAB 0: ANA SAYFA MAĞAZASI
   Widget _buildHomeStorefrontPage() {
-    final filteredCatalog = _products.where((p) {
+    final catalogList = _liveProducts.isNotEmpty ? _liveProducts : _products;
+    final filteredCatalog = catalogList.where((p) {
       if (_selectedCategory == 'İndirimli Ürünler') {
         return (p['orig_price'] != null && p['orig_price'] > p['price']);
       } else if (_selectedCategory != 'Tümü' && p['sub_brand'] != _selectedCategory) {
@@ -551,22 +760,30 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
               ),
             ),
 
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEF2F2),
-              borderRadius: BorderRadius.circular(100),
-              border: Border.all(color: const Color(0xFFFECDD3)),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedBranch,
-                isExpanded: true,
-                icon: const Icon(Icons.location_on, color: Color(0xFFDC2626)),
-                items: _branchDetails.map((b) => DropdownMenuItem(value: b['name']!, child: Text(b['name']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFDC2626))))).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedBranch = val);
-                },
+          InkWell(
+            onTap: () => _showBranchPickerBottomSheet(context),
+            borderRadius: BorderRadius.circular(100),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(color: const Color(0xFFFECDD3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_on, color: Color(0xFFDC2626), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _selectedBranch,
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFFDC2626)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFFDC2626), size: 22),
+                ],
               ),
             ),
           ),
@@ -976,7 +1193,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('TEMA SanalMarket Şube Ağı (6 Şube)', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+        Text('TEMA SanalMarket Şube Ağı (${_branchDetails.length} Şube)', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
         const SizedBox(height: 4),
         const Text('Size en yakın şubemizi seçerek canlı stoklar üzerinden sipariş oluşturabilirsiniz.', style: TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 16),
@@ -1083,11 +1300,16 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFDC2626),
+                        backgroundColor: _flags.sanalMarket ? const Color(0xFFDC2626) : const Color(0xFFFEF2F2),
+                        elevation: 0,
+                        side: _flags.sanalMarket ? null : const BorderSide(color: Color(0xFFFECDD3)),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                       ),
                       onPressed: () => _addToCart(p),
-                      child: const Text('Sepete Ekle', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                      child: Text(
+                        _flags.sanalMarket ? 'Sepete Ekle' : 'Şubede Fırsat',
+                        style: TextStyle(color: _flags.sanalMarket ? Colors.white : const Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
                     ),
                   ],
                 ),
@@ -1615,65 +1837,208 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   }
 
   void _showCartBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    // Sanal Market kapalıysa sepet açılmaz
+    if (!_flags.sanalMarket) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Sepetim', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-                  Text('Toplam: ₺${_cartTotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFFDC2626))),
-                ],
-              ),
-              const Divider(height: 24),
-              if (_cart.isEmpty)
-                const Padding(padding: EdgeInsets.all(24), child: Text('Sepetiniz henüz boş.'))
-              else
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _cart.length,
-                    itemBuilder: (context, index) {
-                      final item = _cart[index];
-                      return ListTile(
-                        title: Text(item['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('₺${item['price']} x ${item['qty']}'),
-                        trailing: Text('₺${(item['price'] * item['qty']).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFDC2626))),
-                      );
-                    },
-                  ),
-                ),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _flags.sanalMarket ? const Color(0xFFDC2626) : Colors.grey,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                  ),
-                  onPressed: (_cart.isEmpty || !_flags.sanalMarket)
-                      ? null
-                      : () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Siparişiniz alındı. E-faturanız kayıtlı iletişim numaranıza gönderilecektir.')),
-                          );
-                        },
-                  child: Text(
-                    !_flags.sanalMarket
-                        ? 'Sanal Market Siparişe Kapalı'
-                        : 'Siparişi Tamamla (₺${_cartTotal.toStringAsFixed(2)})',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
+              Icon(Icons.lock_outlined, color: Colors.white, size: 18),
+              SizedBox(width: 8),
+              Expanded(child: Text('Sanal Market şu an siparişe kapalıdır. Ürünlerimizi şubelerimizde bulabilirsiniz.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
             ],
           ),
+          backgroundColor: const Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (modalContext) {
+        // StatefulBuilder: modal içi sepet değişikliklerini anlık yansıtır
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final cartItems = List<Map<String, dynamic>>.from(_cart);
+            final total = cartItems.fold(0.0, (sum, i) => sum + (i['price'] * i['qty']));
+            // Modal içinde sanal market kapandıysa hemen kapat
+            if (!_flags.sanalMarket) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (Navigator.canPop(context)) Navigator.pop(context);
+              });
+            }
+            return Container(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle bar
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(4)),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.shopping_bag_outlined, color: Color(0xFF0F172A), size: 22),
+                          SizedBox(width: 8),
+                          Text('Sepetim', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                        ],
+                      ),
+                      Text('₺${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFFDC2626))),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  // Sepet içeriği
+                  if (cartItems.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Column(
+                        children: [
+                          Icon(Icons.shopping_cart_outlined, size: 56, color: Colors.grey),
+                          SizedBox(height: 12),
+                          Text('Sepetiniz boş', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
+                          SizedBox(height: 4),
+                          Text('Ürün eklemek için kataloğu inceleyin.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: cartItems.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final item = cartItems[index];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(item['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            subtitle: Text('₺${item['price']} x ${item['qty']} adet'),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('₺${(item['price'] * item['qty']).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFDC2626))),
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      if (_cart[index]['qty'] > 1) {
+                                        _cart[index]['qty'] = (_cart[index]['qty'] as int) - 1;
+                                      } else {
+                                        _cart.removeAt(index);
+                                      }
+                                    });
+                                    setModalState(() {});
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(color: Color(0xFFFEF2F2), shape: BoxShape.circle),
+                                    child: const Icon(Icons.remove, size: 16, color: Color(0xFFDC2626)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  // Sipariş tamamla butonu — sanalMarket=false ise TAMAMEN GİZLİ & DEVRE DIŞI
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: (cartItems.isNotEmpty && _flags.sanalMarket)
+                            ? const Color(0xFFDC2626)
+                            : Colors.grey[300],
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                        elevation: 0,
+                      ),
+                      onPressed: (cartItems.isEmpty || !_flags.sanalMarket)
+                          ? null // HARDLOCKEDed — null = kesinlikle tıklanamaz
+                          : () async {
+                              final orderItems = _cart.map((item) => {
+                                'product_id': item['id'] ?? 1,
+                                'quantity': item['qty'] ?? 1,
+                                'unit_price': item['price'] ?? 0.0,
+                              }).toList();
+
+                              final orderPayload = {
+                                'tenant_id': 1,
+                                'branch_id': 1,
+                                'customer_name': widget.user?['name'] ?? ApiService.currentUser?['name'] ?? 'Müşteri',
+                                'customer_phone': widget.user?['phone'] ?? ApiService.currentUser?['phone'] ?? '05321002233',
+                                'delivery_address': _selectedBranch,
+                                'payment_method': 'Nakit',
+                                'items': orderItems,
+                              };
+
+                              final messenger = ScaffoldMessenger.of(context);
+                              Navigator.pop(context);
+
+                              try {
+                                await ApiService.createOrder(orderPayload);
+                                setState(() => _cart.clear());
+                                if (mounted) {
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: const Row(
+                                        children: [
+                                          Icon(Icons.check_circle, color: Colors.white),
+                                          SizedBox(width: 8),
+                                          Expanded(child: Text('Siparişiniz alındı! Canlı veritabanına kaydedildi.')),
+                                        ],
+                                      ),
+                                      backgroundColor: const Color(0xFF16A34A),
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text('Sipariş oluşturma hatası: $e'),
+                                      backgroundColor: Colors.red,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      child: Text(
+                        !_flags.sanalMarket
+                            ? '🔒 Sanal Market Siparişe Kapalı'
+                            : cartItems.isEmpty
+                                ? 'Sepet Boş'
+                                : 'Siparişi Tamamla  •  ₺${total.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          color: (cartItems.isNotEmpty && _flags.sanalMarket) ? Colors.white : Colors.grey[600],
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );

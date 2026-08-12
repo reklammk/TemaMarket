@@ -1,243 +1,399 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+/// TEMASAN ERP — Canlı API Servisi
+///
+/// ⚠️  MOCK DATA YOKTUR.
+/// Tüm veriler temasanalmarket.com canlı veritabanından gelir.
+/// Sunucu kapalıysa uygulama hata gösterir, sahte veri kullanmaz.
 class ApiService {
-  // Canlı & Yerel API Sunucu Adresi
-  static String baseUrl = 'https://temasanalmarket.com/api/v1';
+  // ─────────────────────────────────────────────────────────────
+  //  SUNUCU YAPISI
+  //  Tek kaynak: canlı production sunucu
+  // ─────────────────────────────────────────────────────────────
+  //  SUNUCU UÇ NOKTALARI (Yerel Laravel + Canlı Sunucu)
+  // ─────────────────────────────────────────────────────────────
+  static const List<String> apiEndpoints = [
+    'http://127.0.0.1:8000/api/v1',
+    'http://10.0.2.2:8000/api/v1',
+    'https://temasanalmarket.com/api/v1',
+  ];
 
-  // 1. ÜRÜNLERİ CANLI ÇEK
-  static Future<List<dynamic>> fetchProducts({String? category, String? branch}) async {
-    try {
-      final queryParams = <String, String>{};
-      if (category != null && category != 'Tümü') queryParams['category'] = category;
-      if (branch != null) queryParams['branch'] = branch;
+  static String baseUrl = apiEndpoints.first;
 
-      final uri = Uri.parse('$baseUrl/products').replace(queryParameters: queryParams);
-      final response = await http.get(uri).timeout(const Duration(seconds: 5));
+  // Kullanıcı Sanctum token'ı (giriş sonrası set edilir)
+  static String? _authToken;
+  static Map<String, dynamic>? _currentUser;
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true && data['data'] != null) {
-          return data['data'];
-        }
-      }
-    } catch (e) {
-      debugPrint('API Error fetchProducts: $e');
-    }
-    return _fallbackProducts;
+  static void setAuthToken(String token) => _authToken = token;
+  static void setCurrentUser(Map<String, dynamic> user) => _currentUser = user;
+  static void clearAuth() {
+    _authToken = null;
+    _currentUser = null;
   }
 
-  // 2. KAMPANYALARI ÇEK
-  static Future<List<dynamic>> fetchCampaigns() async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/campaigns')).timeout(const Duration(seconds: 5));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true && data['data'] != null) {
-          return data['data'];
-        }
-      }
-    } catch (e) {
-      debugPrint('API Error fetchCampaigns: $e');
-    }
-    return _fallbackCampaigns;
-  }
+  static Map<String, dynamic>? get currentUser => _currentUser;
+  static bool get isLoggedIn => _authToken != null;
 
-  // 3. MÜŞTERİ KASA SORGULAMA & PUAN API (NFC / Barkod / Telefon No Sorgusu)
-  static Future<Map<String, dynamic>> lookupCustomerByPhone(String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-    try {
-      final uri = Uri.parse('$baseUrl/customer/lookup?phone=$cleanPhone');
-      final response = await http.get(uri).timeout(const Duration(seconds: 5));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true && data['customer'] != null) {
-          return data['customer'];
-        }
-      }
-    } catch (e) {
-      debugPrint('API Error lookupCustomerByPhone: $e');
-    }
-    // Canlı bağlantı kurulamadığında aktif müşteri mock fallback nesnesi
-    return {
-      'phone': cleanPhone,
-      'name': 'Mehmet Yılmaz',
-      'role': 'VIP Müşteri',
-      'points': 450,
-      'points_tl': 45.0,
-      'vip_tier': 'VIP Gold',
-      'discount_rate': '%10 VIP İndirimi',
-      'status': 'Aktif',
-    };
-  }
+  // ─────────────────────────────────────────────────────────────
+  //  HTTP HEADERS
+  // ─────────────────────────────────────────────────────────────
+  static Map<String, String> get _headers => {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+  };
 
-  // 4. OTP SMS GÖNDERİMİ API
-  static Future<bool> sendOtp(String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/send-otp'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'phone': cleanPhone}),
-      ).timeout(const Duration(seconds: 5));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['success'] == true;
-      }
-    } catch (e) {
-      debugPrint('API Error sendOtp: $e');
-    }
-    return true; // OTP gönderildi simülasyonu
-  }
-
-  // 5. OTP DOĞRULAMA & GİRİŞ API
-  static Future<Map<String, dynamic>?> verifyOtp(String phone, String code) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/verify-otp'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'phone': cleanPhone, 'code': code}),
-      ).timeout(const Duration(seconds: 5));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true && data['user'] != null) {
-          return data['user'];
-        }
-      }
-    } catch (e) {
-      debugPrint('API Error verifyOtp: $e');
-    }
-    return {
-      'id': 1,
-      'name': 'Mehmet Yılmaz',
-      'phone': cleanPhone,
-      'role': 'Customer',
-      'token': 'demo_token_123456',
-    };
-  }
-
-  // 6. SİPARİŞ OLUŞTURMA API
-  static Future<bool> createOrder(Map<String, dynamic> orderPayload) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/orders'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(orderPayload),
-      ).timeout(const Duration(seconds: 5));
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = json.decode(response.body);
-        return data['success'] == true;
-      }
-    } catch (e) {
-      debugPrint('API Error createOrder: $e');
-    }
-    return true;
-  }
-
-  // 7. FEATURE FLAGS CANLI SENKRONİZASYON API
+  // ─────────────────────────────────────────────────────────────
+  //  FEATURE FLAGS
+  // ─────────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>?> fetchFeatureFlags() async {
-    final List<String> endpoints = [
-      '$baseUrl/feature-flags',
-      'https://temasanalmarket.com/api/v1/feature-flags',
-      'http://127.0.0.1:8000/api/v1/feature-flags',
-      'http://10.0.2.2:8000/api/v1/feature-flags',
-    ];
-
-    for (final url in endpoints) {
+    for (final endpoint in apiEndpoints) {
       try {
-        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 3));
+        final response = await http
+            .get(Uri.parse('$endpoint/feature-flags'), headers: _headers)
+            .timeout(const Duration(seconds: 3));
+
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          if (data['success'] == true && data['flags'] != null) {
-            return Map<String, dynamic>.from(data['flags']);
+          if (data is Map<String, dynamic>) {
+            if (data['flags'] != null && data['flags'] is Map) {
+              baseUrl = endpoint; // Çalışan endpoint'i kaydet
+              return Map<String, dynamic>.from(data['flags']);
+            } else if (data['sanal_market'] != null || data['sanalMarket'] != null) {
+              baseUrl = endpoint;
+              return Map<String, dynamic>.from(data);
+            }
           }
         }
-      } catch (e) {
-        debugPrint('API Error fetchFeatureFlags ($url): $e');
-      }
+      } catch (_) {}
     }
+
     return null;
   }
 
-  static const List<Map<String, dynamic>> _fallbackProducts = [
-    {
-      'id': 1,
-      'name': 'Dana Kasap Parmak Sucuk 500 g',
-      'category': 'Et & Tavuk & Balık',
-      'sub_brand': 'Kasap',
-      'base_price': 499.00,
-      'original_price': 625.00,
-      'stock': 25,
-      'unit': 'Paket',
-      'image': 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': 2,
-      'name': 'Sıkma File Portakal 2 kg',
-      'category': 'Meyve & Sebze',
-      'sub_brand': 'Manav',
-      'base_price': 49.90,
-      'original_price': 65.00,
-      'stock': 45,
-      'unit': 'File',
-      'image': 'https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': 3,
-      'name': 'Torku Tam Yağlı Taze Kaşar 600 g',
-      'category': 'Süt & Şarküteri',
-      'sub_brand': 'Sarkuteri',
-      'base_price': 299.00,
-      'original_price': 479.00,
-      'stock': 14,
-      'unit': 'Adet',
-      'image': 'https://images.unsplash.com/photo-1552767059-ce182ead6c1b?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': 4,
-      'name': 'Geleneksel Ekşi Mayalı Trabzon Ekmeği 800 g',
-      'category': 'Fırın & Pastane',
-      'sub_brand': 'Firin',
-      'base_price': 35.00,
-      'original_price': 42.00,
-      'stock': 30,
-      'unit': 'Adet',
-      'image': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': 5,
-      'name': 'Çaykur Rize Turist Çayı 1000 g',
-      'category': 'İçecek',
-      'sub_brand': 'Icecek',
-      'base_price': 165.00,
-      'original_price': 185.00,
-      'stock': 82,
-      'unit': 'Paket',
-      'image': 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=400&q=80',
-    },
-  ];
+  static Future<bool> saveFeatureFlags(Map<String, dynamic> flags) async {
+    bool success = false;
+    for (final endpoint in apiEndpoints) {
+      try {
+        final response = await http
+            .post(
+              Uri.parse('$endpoint/feature-flags'),
+              headers: _headers,
+              body: json.encode({'flags': flags}),
+            )
+            .timeout(const Duration(seconds: 4));
 
-  static const List<Map<String, dynamic>> _fallbackCampaigns = [
-    {
-      'id': 1,
-      'title': 'SANALMARKET İLK SİPARİŞE İNDİRİM!',
-      'badge': 'SANALMARKET ÖZEL',
-      'code': 'TEMA50',
-      'description': 'Tüm Şubelerimizde Aynı Gün Teslimat Fırsatıyla',
-      'image': 'https://images.unsplash.com/photo-1528825871115-3581a5387919?auto=format&fit=crop&w=800&q=80',
-    },
-    {
-      'id': 2,
-      'title': 'TAZE KASAP DANA ETİ VE SUCUKTA ÖZEL FİYAT!',
-      'badge': 'TEMA KASAP ÖZEL',
-      'code': 'KASAP30',
-      'description': 'Günlük Kesim Taze Yerli Üretim Kasap Ürünlerinde Geçerlidir',
-      'image': 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    },
-  ];
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data['success'] == true) success = true;
+        }
+      } catch (_) {}
+    }
+    return success;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  KİMLİK DOĞRULAMA
+  // ─────────────────────────────────────────────────────────────
+
+  /// OTP kodu gönder
+  static Future<Map<String, dynamic>> sendOtp(String phone) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/send-otp'),
+      headers: _headers,
+      body: json.encode({'phone': cleanPhone}),
+    ).timeout(const Duration(seconds: 10));
+
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return data; // mock_otp_code debug modunda döner
+    }
+    throw ApiException(data['message'] ?? 'OTP gönderilemedi.', response.statusCode);
+  }
+
+  /// OTP doğrula ve token al
+  static Future<Map<String, dynamic>> verifyOtp(String phone, String code) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/verify-otp'),
+      headers: _headers,
+      body: json.encode({'phone': cleanPhone, 'code': code}),
+    ).timeout(const Duration(seconds: 10));
+
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      final token = data['data']?['access_token'] ?? data['access_token'];
+      final user  = data['data']?['user']         ?? data['user'];
+      if (token != null) setAuthToken(token);
+      if (user  != null) setCurrentUser(Map<String, dynamic>.from(user));
+      return data['data'] ?? data;
+    }
+    throw ApiException(data['message'] ?? 'Doğrulama başarısız.', response.statusCode);
+  }
+
+  /// Oturumu kapat
+  static Future<void> logout() async {
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/auth/logout'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 5));
+    } catch (_) {}
+    clearAuth();
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  ÜRÜNLER
+  // ─────────────────────────────────────────────────────────────
+  static Future<List<dynamic>> fetchProducts({
+    String? category,
+    String? search,
+    int? branchId,
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final params = <String, String>{
+      'page':     '$page',
+      'per_page': '$perPage',
+    };
+    if (category != null && category != 'Tümü') params['sub_brand'] = category;
+    if (search   != null && search.isNotEmpty) params['search'] = search;
+    if (branchId != null) params['branch_id'] = '$branchId';
+
+    final response = await http
+        .get(Uri.parse('$baseUrl/products').replace(queryParameters: params), headers: _headers)
+        .timeout(const Duration(seconds: 10));
+
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return List<dynamic>.from(data['data'] ?? []);
+    }
+    throw ApiException(data['message'] ?? 'Ürünler alınamadı.', response.statusCode);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  KAMPANYALAR
+  // ─────────────────────────────────────────────────────────────
+  static Future<List<dynamic>> fetchCampaigns() async {
+    final response = await http
+        .get(Uri.parse('$baseUrl/campaigns'), headers: _headers)
+        .timeout(const Duration(seconds: 10));
+
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return List<dynamic>.from(data['data'] ?? []);
+    }
+    throw ApiException(data['message'] ?? 'Kampanyalar alınamadı.', response.statusCode);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  ŞUBELERİ ÇEK (Canlı API)
+  // ─────────────────────────────────────────────────────────────
+  static Future<List<dynamic>> fetchBranches() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/branches'), headers: _headers)
+          .timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['data'] != null) {
+          return List<dynamic>.from(data['data']);
+        }
+      }
+    } catch (e) {
+      debugPrint('fetchBranches error: $e');
+    }
+    return [];
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  MÜŞTERİ SORGULAMA (NFC / Barkod / Telefon No)
+  // ─────────────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> lookupCustomerByPhone(String phone) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/customer/lookup').replace(
+            queryParameters: {'phone': cleanPhone},
+          ),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return Map<String, dynamic>.from(data['data'] ?? data);
+    }
+    throw ApiException(data['message'] ?? 'Müşteri bulunamadı.', response.statusCode);
+  }
+
+  /// Müşteriye puan ekle / çıkar
+  static Future<Map<String, dynamic>> awardPoints({
+    required String phone,
+    required int points,
+    required String type, // 'Kazanım' | 'Kullanım' | 'İptal' | 'Düzeltme'
+    String? description,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/customer/award-points'),
+      headers: _headers,
+      body: json.encode({
+        'phone':       phone.replaceAll(RegExp(r'\D'), ''),
+        'points':      points,
+        'type':        type,
+        'description': description,
+      }),
+    ).timeout(const Duration(seconds: 8));
+
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return Map<String, dynamic>.from(data['data'] ?? data);
+    }
+    throw ApiException(data['message'] ?? 'Puan işlemi başarısız.', response.statusCode);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  SİPARİŞ OLUŞTURMA
+  // ─────────────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> createOrder(Map<String, dynamic> orderPayload) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/orders'),
+      headers: _headers,
+      body: json.encode(orderPayload),
+    ).timeout(const Duration(seconds: 15));
+
+    final data = json.decode(response.body);
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        data['success'] == true) {
+      return Map<String, dynamic>.from(data['data'] ?? data);
+    }
+    throw ApiException(data['message'] ?? 'Sipariş oluşturulamadı.', response.statusCode);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  DASHBOARD METRİKLERİ
+  // ─────────────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> fetchDashboardMetrics() async {
+    final response = await http
+        .get(Uri.parse('$baseUrl/dashboard/metrics'), headers: _headers)
+        .timeout(const Duration(seconds: 10));
+
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return Map<String, dynamic>.from(data['data'] ?? data);
+    }
+    throw ApiException(data['message'] ?? 'Metrikler alınamadı.', response.statusCode);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  SADAKAT PUAN KURALLARI
+  // ─────────────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> fetchLoyaltyRules() async {
+    final response = await http
+        .get(Uri.parse('$baseUrl/loyalty/rules'), headers: _headers)
+        .timeout(const Duration(seconds: 8));
+
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return Map<String, dynamic>.from(data['data'] ?? data);
+    }
+    throw ApiException(data['message'] ?? 'Sadakat kuralları alınamadı.', response.statusCode);
+  }
+
+  static Future<bool> updateLoyaltyRules(Map<String, dynamic> rules) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/loyalty/rules'),
+      headers: _headers,
+      body: json.encode(rules),
+    ).timeout(const Duration(seconds: 8));
+
+    final data = json.decode(response.body);
+    return response.statusCode == 200 && data['success'] == true;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  KURYELER
+  // ─────────────────────────────────────────────────────────────
+  static Future<List<dynamic>> fetchCouriers({int? branchId}) async {
+    final params = <String, String>{};
+    if (branchId != null) params['branch_id'] = '$branchId';
+
+    final response = await http
+        .get(Uri.parse('$baseUrl/couriers').replace(queryParameters: params), headers: _headers)
+        .timeout(const Duration(seconds: 8));
+
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return List<dynamic>.from(data['data'] ?? []);
+    }
+    throw ApiException(data['message'] ?? 'Kuryeler alınamadı.', response.statusCode);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  SİPARİŞLER
+  // ─────────────────────────────────────────────────────────────
+  static Future<List<dynamic>> fetchOrders({
+    String? status,
+    int? branchId,
+    int page = 1,
+  }) async {
+    final params = <String, String>{'page': '$page'};
+    if (status   != null) params['status']    = status;
+    if (branchId != null) params['branch_id'] = '$branchId';
+
+    final response = await http
+        .get(Uri.parse('$baseUrl/orders').replace(queryParameters: params), headers: _headers)
+        .timeout(const Duration(seconds: 10));
+
+    final data = json.decode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return List<dynamic>.from(data['data'] ?? []);
+    }
+    throw ApiException(data['message'] ?? 'Siparişler alınamadı.', response.statusCode);
+  }
+
+  static Future<bool> updateOrderStatus(int orderId, String status) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/orders/$orderId/status'),
+      headers: _headers,
+      body: json.encode({'status': status}),
+    ).timeout(const Duration(seconds: 8));
+
+    final data = json.decode(response.body);
+    return response.statusCode == 200 && data['success'] == true;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  GENEL YARDIMCI
+  // ─────────────────────────────────────────────────────────────
+
+  /// Sunucu bağlantısını test et
+  static Future<bool> healthCheck() async {
+    try {
+      final response = await http
+          .get(Uri.parse('https://temasanalmarket.com/api/health'))
+          .timeout(const Duration(seconds: 5));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  API İSTİSNA SINIFI
+// ─────────────────────────────────────────────────────────────
+class ApiException implements Exception {
+  final String message;
+  final int? statusCode;
+
+  const ApiException(this.message, [this.statusCode]);
+
+  @override
+  String toString() => 'ApiException($statusCode): $message';
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class AuthPage extends StatefulWidget {
   final String defaultRole;
@@ -25,41 +26,49 @@ class _AuthPageState extends State<AuthPage> {
 
   void _sendOtp() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() {
-      _isLoading = false;
-      _otpSent = true;
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🔒 Doğrulama Kodu SMS Olarak Gönderildi: 123987'),
-          backgroundColor: Color(0xFFDC2626),
-        ),
-      );
+    try {
+      final res = await ApiService.sendOtp(_phoneController.text);
+      final mockCode = res['data']?['mock_otp_code'] ?? res['mock_otp_code'];
+      setState(() {
+        _isLoading = false;
+        _otpSent = true;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(mockCode != null
+                ? '🔒 SMS Kodu Gönderildi: $mockCode'
+                : '🔒 SMS Doğrulama Kodu Gönderildi'),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
   void _verifyOtp() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() => _isLoading = false);
-
-    final user = {
-      'name': _selectedRole == 'SuperAdmin'
-          ? 'Yönetici Temasan'
-          : _selectedRole == 'Merchant'
-              ? 'Lalapaşa Şube Müdürü'
-              : _selectedRole == 'Courier'
-                  ? 'Kurye Ahmet Yılmaz'
-                  : 'Zeynep Yılmaz',
-      'phone': _phoneController.text,
-      'role': _selectedRole,
-      'points': 450,
-    };
-
-    if (widget.onLoginSuccess != null) {
-      widget.onLoginSuccess!(user);
+    try {
+      final res = await ApiService.verifyOtp(_phoneController.text, _otpController.text);
+      setState(() => _isLoading = false);
+      final user = res['user'] ?? res;
+      if (widget.onLoginSuccess != null) {
+        widget.onLoginSuccess!(Map<String, dynamic>.from(user));
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
