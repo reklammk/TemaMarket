@@ -167,7 +167,10 @@ class _TemasanAppState extends State<TemasanApp> {
           onFinish: () => setState(() => _currentRoute = 'storefront'),
         );
       case 'auth':
-        return AuthPage(onLoginSuccess: _handleLoginSuccess);
+        return AuthPage(
+          onLoginSuccess: _handleLoginSuccess,
+          onClose: () => setState(() => _currentRoute = 'storefront'),
+        );
       case 'admin':
         return AdminDashboardPage(
           user: _currentUser,
