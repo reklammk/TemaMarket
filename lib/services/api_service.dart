@@ -298,13 +298,14 @@ class ApiService {
 
   static Future<Map<String, dynamic>> createOrder(
     Map<String, dynamic> orderPayload, {
-    required String idempotencyKey,
+    String? idempotencyKey,
   }) async {
+    final key = idempotencyKey ?? generateIdempotencyKey();
     final response = await _request(
       'POST',
       '/orders',
-      body: {...orderPayload, 'idempotency_key': idempotencyKey},
-      extraHeaders: {'X-Idempotency-Key': idempotencyKey},
+      body: {...orderPayload, 'idempotency_key': key},
+      extraHeaders: {'X-Idempotency-Key': key},
       timeout: const Duration(seconds: 20),
     );
     return _dataMap(response);
