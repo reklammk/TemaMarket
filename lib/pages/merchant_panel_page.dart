@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import '../services/feature_flags_service.dart';
 
 /// Bayi paneli yalnızca oturumdaki bayi hesabına atanımış şubenin
 /// sipariş, stok ve kurye verilerini gösterir.
@@ -24,6 +25,7 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
   List<Map<String, dynamic>> _couriers = [];
   String _productQuery = '';
   final Set<int> _busyOrders = {};
+  FeatureFlags _flags = const FeatureFlags();
 
   int get _branchId => _asInt(widget.user?['branch_id']);
 
@@ -63,16 +65,18 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
       _error = null;
     });
     try {
-      final results = await Future.wait([
+      final results = await Future.wait<dynamic>([
         ApiService.fetchOrders(branchId: _branchId),
         ApiService.fetchProducts(branchId: _branchId),
         ApiService.fetchCouriers(branchId: _branchId),
+        FeatureFlagsService.loadFlags(),
       ]);
       if (!mounted) return;
       setState(() {
         _orders = _maps(results[0]);
         _products = _maps(results[1]);
         _couriers = _maps(results[2]);
+        _flags = results[3] as FeatureFlags;
       });
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -87,6 +91,10 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
       .toList();
 
   Future<void> _editStock(Map<String, dynamic> product) async {
+    if (!_flags.bayiStok) {
+      _showError('Bayi stok yönetimi şu anda kapalı.');
+      return;
+    }
     final productId = _asInt(product['id']);
     final controller =
         TextEditingController(text: '${_asInt(product['stock'])}');
@@ -320,6 +328,12 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
   }
 
   Widget _stockTab() {
+    if (!_flags.bayiStok) {
+      return _EmptyState(
+        message: 'Bayi stok yönetimi yönetici tarafından kapatıldı.',
+        onRetry: _loadData,
+      );
+    }
     final query = _productQuery.toLowerCase();
     final visible = _products
         .where((item) =>

@@ -144,12 +144,16 @@ class ApiService {
     return Map<String, dynamic>.from(data);
   }
 
-  static Future<Map<String, dynamic>?> fetchFeatureFlags() async {
-    final response = await _request(
+  static Future<Map<String, dynamic>> fetchFeatureConfiguration() async {
+    return _request(
       'GET',
       '/feature-flags',
       timeout: const Duration(seconds: 5),
     );
+  }
+
+  static Future<Map<String, dynamic>?> fetchFeatureFlags() async {
+    final response = await fetchFeatureConfiguration();
     final flags = response['flags'];
     if (flags is! Map) {
       throw const ApiException('Özellik ayarları geçersiz.');
@@ -157,13 +161,13 @@ class ApiService {
     return Map<String, dynamic>.from(flags);
   }
 
-  static Future<bool> saveFeatureFlags(Map<String, dynamic> flags) async {
-    final response = await _request(
+  static Future<Map<String, dynamic>> saveFeatureFlags(
+      Map<String, dynamic> flags) async {
+    return _request(
       'POST',
       '/feature-flags',
       body: {'flags': flags},
     );
-    return response['success'] == true;
   }
 
   static Future<Map<String, dynamic>> sendOtp(

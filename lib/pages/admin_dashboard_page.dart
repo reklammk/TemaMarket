@@ -26,6 +26,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _campaigns = [];
   FeatureFlags _flags = const FeatureFlags();
+  Map<String, dynamic> _capabilities = {};
   final Set<String> _savingFlags = {};
 
   @override
@@ -65,10 +66,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
         ApiService.fetchOrders(),
         ApiService.fetchProducts(),
         ApiService.fetchCampaigns(),
-        ApiService.fetchFeatureFlags(),
+        ApiService.fetchFeatureConfiguration(),
       ]);
       if (!mounted) return;
-      final rawFlags = results[5];
+      final configuration = Map<String, dynamic>.from(results[5] as Map);
+      final rawFlags = configuration['flags'];
       setState(() {
         _metrics = Map<String, dynamic>.from(results[0] as Map);
         _branches = _maps(results[1] as List<dynamic>);
@@ -78,6 +80,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
         _flags = FeatureFlags.fromJson(
           rawFlags is Map ? Map<String, dynamic>.from(rawFlags) : const {},
         );
+        _capabilities = configuration['capabilities'] is Map
+            ? Map<String, dynamic>.from(configuration['capabilities'] as Map)
+            : {};
       });
       await FeatureFlagsService.saveFlags(_flags);
     } catch (error) {
@@ -89,6 +94,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
 
   Future<void> _toggleFlag(String key, bool value) async {
     if (_savingFlags.contains(key)) return;
+    if (value && !_featureAvailable(key)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_featureReason(key))),
+      );
+      return;
+    }
     final oldFlags = _flags;
     final updated = {...oldFlags.toJson(), key: value};
     setState(() {
@@ -96,9 +107,20 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
       _savingFlags.add(key);
     });
     try {
-      final saved = await ApiService.saveFeatureFlags(updated);
-      if (!saved) throw const ApiException('Ayar sunucuya kaydedilemedi.');
-      await FeatureFlagsService.saveFlags(_flags);
+      final configuration = await ApiService.saveFeatureFlags(updated);
+      final savedFlags = configuration['flags'];
+      final serverFlags = FeatureFlags.fromJson(
+        savedFlags is Map ? Map<String, dynamic>.from(savedFlags) : updated,
+      );
+      if (!mounted) return;
+      setState(() {
+        _flags = serverFlags;
+        if (configuration['capabilities'] is Map) {
+          _capabilities =
+              Map<String, dynamic>.from(configuration['capabilities'] as Map);
+        }
+      });
+      await FeatureFlagsService.saveFlags(serverFlags);
     } catch (error) {
       if (!mounted) return;
       setState(() => _flags = oldFlags);
@@ -108,6 +130,20 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
     } finally {
       if (mounted) setState(() => _savingFlags.remove(key));
     }
+  }
+
+  bool _featureAvailable(String key) {
+    final capability = _capabilities[key];
+    return capability is Map && capability['available'] == true;
+  }
+
+  String _featureReason(String key) {
+    final capability = _capabilities[key];
+    if (capability is Map) {
+      return capability['reason']?.toString() ??
+          'Sunucu yetenek bilgisi alınamadı.';
+    }
+    return 'Sunucu yetenek bilgisi alınamadı.';
   }
 
   @override
@@ -333,20 +369,23 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
           child: ListTile(
             leading: Icon(Icons.info_outline),
             title: Text(
-                'Entegrasyonu tamamlanmamış özellikler varsayılan olarak kapalıdır.'),
+                'Hazır özellikler anında uygulanır; sağlayıcı gerektiren özellikler yapılandırılana kadar açılamaz.'),
           ),
         ),
         ...entries.map(
-          (entry) => SwitchListTile(
-            title: Text(entry.$2),
-            subtitle: Text(_savingFlags.contains(entry.$1)
-                ? 'Kaydediliyor…'
-                : 'Sunucu ayarı'),
-            value: entry.$3,
-            onChanged: _savingFlags.contains(entry.$1)
-                ? null
-                : (value) => _toggleFlag(entry.$1, value),
-          ),
+          (entry) {
+            final available = _featureAvailable(entry.$1);
+            return SwitchListTile(
+              title: Text(entry.$2),
+              subtitle: Text(_savingFlags.contains(entry.$1)
+                  ? 'Kaydediliyor…'
+                  : _featureReason(entry.$1)),
+              value: entry.$3,
+              onChanged: !available || _savingFlags.contains(entry.$1)
+                  ? null
+                  : (value) => _toggleFlag(entry.$1, value),
+            );
+          },
         ),
       ],
     );
