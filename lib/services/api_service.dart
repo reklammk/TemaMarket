@@ -300,7 +300,7 @@ class ApiService {
     Map<String, dynamic> orderPayload, {
     String? idempotencyKey,
   }) async {
-    final key = idempotencyKey ?? generateIdempotencyKey();
+    final key = idempotencyKey ?? createIdempotencyKey();
     final response = await _request(
       'POST',
       '/orders',
@@ -345,6 +345,15 @@ class ApiService {
       'PATCH',
       '/orders/$orderId/status',
       body: {'status': status},
+    );
+    return response['success'] == true;
+  }
+
+  static Future<bool> assignCourier(int orderId, int courierId) async {
+    final response = await _request(
+      'POST',
+      '/orders/assign-courier',
+      body: {'order_id': orderId, 'courier_id': courierId},
     );
     return response['success'] == true;
   }

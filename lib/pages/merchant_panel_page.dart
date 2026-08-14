@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../services/api_service.dart';
 
-/// TEMASAN ERP — Bayi & Şube Yöneticisi Paneli (Merchant / Branch Manager Panel)
-/// Özel olarak Şube Müdürlerinin günlük mağaza siparişlerini, şube stoklarını ve kuryelerini yönettiği panel.
+/// Bayi paneli yalnızca oturumdaki bayi hesabına atanımış şubenin
+/// sipariş, stok ve kurye verilerini gösterir.
 class MerchantPanelPage extends StatefulWidget {
   final Map<String, dynamic>? user;
   final VoidCallback? onBackToStore;
@@ -13,250 +14,388 @@ class MerchantPanelPage extends StatefulWidget {
   State<MerchantPanelPage> createState() => _MerchantPanelPageState();
 }
 
-class _MerchantPanelPageState extends State<MerchantPanelPage> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  bool _isLoading = false;
+class _MerchantPanelPageState extends State<MerchantPanelPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
+  bool _loading = true;
+  String? _error;
+  List<Map<String, dynamic>> _orders = [];
+  List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _couriers = [];
+  String _productQuery = '';
+  final Set<int> _busyOrders = {};
 
-  // ── ŞUBE ÖZEL VERİLERİ ──
-  List<Map<String, dynamic>> _branchProducts = [];
-  List<Map<String, dynamic>> _branchOrders = [];
-  String _searchProductQuery = '';
+  int get _branchId => _asInt(widget.user?['branch_id']);
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _loadBranchData();
+    _tabs = TabController(length: 3, vsync: this);
+    _loadData();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabs.dispose();
     super.dispose();
   }
 
-  Future<void> _loadBranchData() async {
-    setState(() => _isLoading = true);
-    try {
-      final products = await ApiService.fetchProducts();
-      if (mounted && products.isNotEmpty) {
+  int _asInt(dynamic value) => value is num
+      ? value.toInt()
+      : int.tryParse(value?.toString() ?? '') ?? 0;
+
+  double _asDouble(dynamic value) => value is num
+      ? value.toDouble()
+      : double.tryParse(value?.toString() ?? '') ?? 0;
+
+  Future<void> _loadData() async {
+    if (_branchId <= 0) {
+      if (mounted) {
         setState(() {
-          _branchProducts = List<Map<String, dynamic>>.from(products);
+          _loading = false;
+          _error = 'Bu bayi hesabına sunucuda bir şube atanmamış.';
         });
       }
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      return;
     }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final results = await Future.wait([
+        ApiService.fetchOrders(branchId: _branchId),
+        ApiService.fetchProducts(branchId: _branchId),
+        ApiService.fetchCouriers(branchId: _branchId),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _orders = _maps(results[0]);
+        _products = _maps(results[1]);
+        _couriers = _maps(results[2]);
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<Map<String, dynamic>> _maps(List<dynamic> values) => values
+      .whereType<Map>()
+      .map((item) => Map<String, dynamic>.from(item))
+      .toList();
+
+  Future<void> _editStock(Map<String, dynamic> product) async {
+    final productId = _asInt(product['id']);
+    final controller = TextEditingController(text: '${_asInt(product['stock'])}');
+    final newStock = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(product['name']?.toString() ?? 'Stok güncelle'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Yeni stok adedi'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+          FilledButton(
+            onPressed: () {
+              final value = int.tryParse(controller.text.trim());
+              if (value != null && value >= 0) Navigator.pop(context, value);
+            },
+            child: const Text('Kaydet'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (newStock == null || productId <= 0) return;
+
+    try {
+      await ApiService.updateProductStock(productId, newStock);
+      await _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Stok sunucuda güncellendi.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) _showError(error);
+    }
+  }
+
+  Future<void> _prepareOrder(Map<String, dynamic> order) async {
+    final id = _asInt(order['id']);
+    if (id <= 0 || _busyOrders.contains(id)) return;
+    setState(() => _busyOrders.add(id));
+    try {
+      await ApiService.updateOrderStatus(id, 'Hazırlanıyor');
+      await _loadData();
+    } catch (error) {
+      if (mounted) _showError(error);
+    } finally {
+      if (mounted) setState(() => _busyOrders.remove(id));
+    }
+  }
+
+  Future<void> _chooseCourier(Map<String, dynamic> order) async {
+    if (_couriers.isEmpty) {
+      _showError('Bu şubeye atanımış aktif kurye bulunmuyor.');
+      return;
+    }
+    final courier = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Kurye seçin'),
+        children: _couriers
+            .map(
+              (item) => SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, item),
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.delivery_dining),
+                  title: Text(item['name']?.toString() ?? 'Kurye'),
+                  subtitle: Text(item['vehicle_type']?.toString() ?? 'Araç belirtilmemiş'),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+    if (courier == null) return;
+    final orderId = _asInt(order['id']);
+    final courierId = _asInt(courier['id']);
+    if (orderId <= 0 || courierId <= 0) return;
+    setState(() => _busyOrders.add(orderId));
+    try {
+      await ApiService.assignCourier(orderId, courierId);
+      await _loadData();
+    } catch (error) {
+      if (mounted) _showError(error);
+    } finally {
+      if (mounted) setState(() => _busyOrders.remove(orderId));
+    }
+  }
+
+  void _showError(Object error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error.toString()), backgroundColor: Colors.red),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final String branchName = widget.user?['branch_name'] ?? 'Lalapaşa AVM (Yakutiye) Şubesi';
+    if (widget.user?['role']?.toString() != 'Merchant') {
+      return const Scaffold(
+        body: Center(child: Text('Bu sayfaya yalnızca bayi hesabı erişebilir.')),
+      );
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 1,
+        foregroundColor: const Color(0xFF0F172A),
         title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Bayi Paneli', style: TextStyle(fontWeight: FontWeight.w900)),
+            Text(
+              widget.user?['company_name']?.toString() ?? 'Atanmış şube',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(onPressed: _loading ? null : _loadData, icon: const Icon(Icons.refresh)),
+          if (widget.onBackToStore != null)
+            IconButton(onPressed: widget.onBackToStore, icon: const Icon(Icons.storefront_outlined)),
+        ],
+        bottom: TabBar(
+          controller: _tabs,
+          tabs: const [
+            Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Siparişler'),
+            Tab(icon: Icon(Icons.inventory_2_outlined), text: 'Stok'),
+            Tab(icon: Icon(Icons.delivery_dining_outlined), text: 'Kuryeler'),
+          ],
+        ),
+      ),
+      body: _body(),
+    );
+  }
+
+  Widget _body() {
+    if (_loading && _orders.isEmpty && _products.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null && _orders.isEmpty && _products.isEmpty) {
+      return _EmptyState(message: _error!, onRetry: _loadData);
+    }
+    return TabBarView(
+      controller: _tabs,
+      children: [_ordersTab(), _stockTab(), _couriersTab()],
+    );
+  }
+
+  Widget _ordersTab() {
+    if (_orders.isEmpty) {
+      return _EmptyState(message: 'Bu şubeye ait sipariş bulunmuyor.', onRetry: _loadData);
+    }
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _orders.length,
+        itemBuilder: (context, index) => _orderCard(_orders[index]),
+      ),
+    );
+  }
+
+  Widget _orderCard(Map<String, dynamic> order) {
+    final id = _asInt(order['id']);
+    final status = order['status']?.toString() ?? 'Alındı';
+    final busy = _busyOrders.contains(id);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDC2626),
-                    borderRadius: BorderRadius.circular(6),
+                Expanded(
+                  child: Text(
+                    order['order_number']?.toString() ?? 'Sipariş #$id',
+                    style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
-                  child: const Text('BAYİ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
                 ),
-                const SizedBox(width: 8),
-                const Text('TEMASAN Bayi Paneli', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                Chip(label: Text(status)),
               ],
             ),
-            Text(branchName, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
-          ],
-        ),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh, color: Color(0xFF0F172A)), onPressed: _loadBranchData),
-          if (widget.onBackToStore != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 12.0),
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFDC2626),
-                  side: const BorderSide(color: Color(0xFFFECDD3)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                ),
-                icon: const Icon(Icons.storefront, size: 16),
-                label: const Text('Mağazaya Dön', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                onPressed: widget.onBackToStore,
-              ),
-            ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: const Color(0xFFDC2626),
-          unselectedLabelColor: const Color(0xFF64748B),
-          indicatorColor: const Color(0xFFDC2626),
-          indicatorWeight: 3,
-          tabs: const [
-            Tab(icon: Icon(Icons.shopping_bag_outlined, size: 20), text: 'Şube Siparişleri'),
-            Tab(icon: Icon(Icons.inventory_2_outlined, size: 20), text: 'Stok Yönetimi'),
-            Tab(icon: Icon(Icons.two_wheeler_outlined, size: 20), text: 'Kurye Durumu'),
-          ],
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFDC2626)))
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildBranchOrdersTab(),
-                _buildBranchStockTab(),
-                _buildBranchCouriersTab(),
-              ],
-            ),
-    );
-  }
-
-  // 1. ŞUBE SİPARİŞLERİ TABI
-  Widget _buildBranchOrdersTab() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text('🛒 Mağaza Siparişleri', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
-              Chip(label: Text('CANLI AKIŞ'), backgroundColor: Color(0xFFDCFCE7), labelStyle: TextStyle(color: Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.shopping_bag_outlined, size: 56, color: Colors.grey),
-                  SizedBox(height: 12),
-                  Text('Şubenize Ait Aktif Bekleyen Sipariş Bulunmuyor', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                  SizedBox(height: 4),
-                  Text('Yeni gelen siparişler burada anlık sesli ve görsel uyarıyla listelenecektir.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(order['customer_name']?.toString() ?? '-'),
+            Text(order['delivery_address']?.toString() ?? '-', style: const TextStyle(color: Colors.black54)),
+            const SizedBox(height: 6),
+            Text('₺${_asDouble(order['total_amount']).toStringAsFixed(2)} • ${order['payment_method'] ?? '-'}'),
+            if (status == 'Alındı' || status == 'Hazırlanıyor') ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                children: [
+                  if (status == 'Alındı')
+                    OutlinedButton.icon(
+                      onPressed: busy ? null : () => _prepareOrder(order),
+                      icon: const Icon(Icons.inventory_outlined),
+                      label: const Text('Hazırlamaya başla'),
+                    ),
+                  FilledButton.icon(
+                    onPressed: busy ? null : () => _chooseCourier(order),
+                    icon: const Icon(Icons.delivery_dining),
+                    label: const Text('Kuryeye ata'),
+                  ),
                 ],
               ),
-            ),
-          ),
-        ],
+            ],
+          ],
+        ),
       ),
     );
   }
 
-  // 2. ŞUBE STOK YÖNETİMİ TABI
-  Widget _buildBranchStockTab() {
-    final filteredProducts = _branchProducts.where((p) {
-      final q = _searchProductQuery.toLowerCase();
-      final name = (p['name'] ?? '').toString().toLowerCase();
-      return name.contains(q);
-    }).toList();
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('📦 Şube Stok Güncelleme (${_branchProducts.length})', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            decoration: InputDecoration(
-              hintText: 'Şube stoklarında ürün ara...',
-              prefixIcon: const Icon(Icons.search),
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+  Widget _stockTab() {
+    final query = _productQuery.toLowerCase();
+    final visible = _products
+        .where((item) => (item['name']?.toString().toLowerCase() ?? '').contains(query))
+        .toList();
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            onChanged: (value) => setState(() => _productQuery = value.trim()),
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              hintText: 'Ürün ara',
+              border: OutlineInputBorder(),
             ),
-            onChanged: (val) => setState(() => _searchProductQuery = val),
           ),
-          const SizedBox(height: 16),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: filteredProducts.length,
-            itemBuilder: (context, index) {
-              final p = filteredProducts[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: ListTile(
-                  leading: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      p['image'] ?? 'https://picsum.photos/seed/product/100/100',
-                      width: 44,
-                      height: 44,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.image, color: Colors.grey),
-                    ),
-                  ),
-                  title: Text(p['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  subtitle: Text('Şube Fiyatı: ₺${p['base_price'] ?? p['price'] ?? 0}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Chip(label: Text('Stokta (48 Adet)'), backgroundColor: Color(0xFFDCFCE7), labelStyle: TextStyle(color: Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold)),
-                      IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.grey), onPressed: () {}),
-                    ],
+        ),
+        Expanded(
+          child: visible.isEmpty
+              ? const Center(child: Text('Bu şubeye ait ürün bulunmuyor.'))
+              : RefreshIndicator(
+                  onRefresh: _loadData,
+                  child: ListView.builder(
+                    itemCount: visible.length,
+                    itemBuilder: (context, index) {
+                      final product = visible[index];
+                      final stock = _asInt(product['stock']);
+                      return ListTile(
+                        leading: CircleAvatar(child: Text('$stock')),
+                        title: Text(product['name']?.toString() ?? 'Ürün'),
+                        subtitle: Text('${product['status'] ?? '-'} • ₺${_asDouble(product['base_price']).toStringAsFixed(2)}'),
+                        trailing: IconButton(
+                          tooltip: 'Stok güncelle',
+                          onPressed: () => _editStock(product),
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              );
-            },
-          ),
-        ],
+        ),
+      ],
+    );
+  }
+
+  Widget _couriersTab() {
+    if (_couriers.isEmpty) {
+      return _EmptyState(message: 'Bu şubeye atanımış aktif kurye yok.', onRetry: _loadData);
+    }
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _couriers.length,
+        separatorBuilder: (_, __) => const Divider(),
+        itemBuilder: (context, index) {
+          final courier = _couriers[index];
+          return ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.delivery_dining)),
+            title: Text(courier['name']?.toString() ?? 'Kurye'),
+            subtitle: Text(courier['vehicle_type']?.toString() ?? 'Araç belirtilmemiş'),
+            trailing: Text(courier['status']?.toString() ?? '-'),
+          );
+        },
       ),
     );
   }
+}
 
-  // 3. KURYE DURUMU TABI
-  Widget _buildBranchCouriersTab() {
-    final couriers = [
-      {'name': 'Ahmet Yılmaz', 'phone': '0532 111 22 33', 'plate': '25 AB 123', 'status': 'Online - Boşta', 'battery': '%88'},
-      {'name': 'Mehmet Demir', 'phone': '0533 444 55 66', 'plate': '25 EV 456', 'status': 'Online - Teslimatta', 'battery': '%64'},
-    ];
+class _EmptyState extends StatelessWidget {
+  final String message;
+  final Future<void> Function() onRetry;
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: couriers.length,
-      itemBuilder: (context, index) {
-        final c = couriers[index];
-        final bool isBusy = c['status']!.contains('Teslimatta');
+  const _EmptyState({required this.message, required this.onRetry});
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: isBusy ? const Color(0xFFFEF2F2) : const Color(0xFFDCFCE7),
-              child: Icon(Icons.two_wheeler, color: isBusy ? const Color(0xFFDC2626) : const Color(0xFF16A34A)),
-            ),
-            title: Text(c['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Tel: ${c['phone']} • Plaka: ${c['plate']} • Şarj: ${c['battery']}'),
-            trailing: Chip(
-              label: Text(c['status']!),
-              backgroundColor: isBusy ? const Color(0xFFFEF2F2) : const Color(0xFFDCFCE7),
-              labelStyle: TextStyle(color: isBusy ? const Color(0xFFDC2626) : const Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold),
-            ),
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.info_outline, size: 48, color: Color(0xFF94A3B8)),
+              const SizedBox(height: 12),
+              Text(message, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              OutlinedButton(onPressed: onRetry, child: const Text('Yenile')),
+            ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
 }
