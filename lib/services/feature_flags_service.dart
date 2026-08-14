@@ -27,18 +27,38 @@ class FeatureFlags {
     this.serbestKurye   = false,
   });
 
+  static bool _asBool(dynamic value, bool fallback) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1') return true;
+      if (normalized == 'false' || normalized == '0') return false;
+    }
+    return fallback;
+  }
+
   factory FeatureFlags.fromJson(Map<String, dynamic> json) {
     return FeatureFlags(
-      sanalMarket:    json['sanal_market']    ?? json['sanalMarket']    ?? true,
-      bayiStok:       json['bayi_stok']       ?? json['bayiStok']       ?? true,
-      temapuan:       json['temapuan']                                  ?? true,
-      apiEntegrasyon: json['api_entegrasyon'] ?? json['apiEntegrasyon'] ?? false,
-      smsGonderim:    json['sms_gonderim']    ?? json['smsGonderim']    ?? false,
-      kampanyalar:    json['kampanyalar']                               ?? true,
-      sanalPos:       json['sanal_pos']       ?? json['sanalPos']       ?? false,
-      softPos:        json['soft_pos']        ?? json['softPos']        ?? false,
-      eFatura:        json['e_fatura']        ?? json['eFatura']        ?? false,
-      serbestKurye:   json['serbest_kurye']   ?? json['serbestKurye']   ?? false,
+      sanalMarket: _asBool(json['sanal_market'] ?? json['sanalMarket'], true),
+      bayiStok: _asBool(json['bayi_stok'] ?? json['bayiStok'], true),
+      temapuan: _asBool(json['temapuan'], true),
+      apiEntegrasyon: _asBool(
+        json['api_entegrasyon'] ?? json['apiEntegrasyon'],
+        false,
+      ),
+      smsGonderim: _asBool(
+        json['sms_gonderim'] ?? json['smsGonderim'],
+        false,
+      ),
+      kampanyalar: _asBool(json['kampanyalar'], true),
+      sanalPos: _asBool(json['sanal_pos'] ?? json['sanalPos'], false),
+      softPos: _asBool(json['soft_pos'] ?? json['softPos'], false),
+      eFatura: _asBool(json['e_fatura'] ?? json['eFatura'], false),
+      serbestKurye: _asBool(
+        json['serbest_kurye'] ?? json['serbestKurye'],
+        false,
+      ),
     );
   }
 
