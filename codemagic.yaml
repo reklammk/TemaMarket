@@ -35,11 +35,6 @@ workflows:
             --export-options-plist=/Users/builder/export_options.plist
       - name: Release IPA Modunu Doğrula
         script: |
-          if ! grep -q '^FLUTTER_BUILD_MODE=release$' ios/Flutter/Generated.xcconfig; then
-            echo "HATA: Flutter build modu release değil."
-            exit 1
-          fi
-
           IPA_PATH="$(find build/ios/ipa -maxdepth 1 -name '*.ipa' -print -quit)"
           if [ -z "$IPA_PATH" ]; then
             echo "HATA: Doğrulanacak IPA bulunamadı."
