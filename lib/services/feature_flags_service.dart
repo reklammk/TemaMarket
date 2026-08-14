@@ -18,13 +18,13 @@ class FeatureFlags {
     this.sanalMarket    = true,
     this.bayiStok       = true,
     this.temapuan       = true,
-    this.apiEntegrasyon = true,
-    this.smsGonderim    = true,
+    this.apiEntegrasyon = false,
+    this.smsGonderim    = false,
     this.kampanyalar    = true,
-    this.sanalPos       = true,
-    this.softPos        = true,
-    this.eFatura        = true,
-    this.serbestKurye   = true,
+    this.sanalPos       = false,
+    this.softPos        = false,
+    this.eFatura        = false,
+    this.serbestKurye   = false,
   });
 
   factory FeatureFlags.fromJson(Map<String, dynamic> json) {
@@ -32,13 +32,13 @@ class FeatureFlags {
       sanalMarket:    json['sanal_market']    ?? json['sanalMarket']    ?? true,
       bayiStok:       json['bayi_stok']       ?? json['bayiStok']       ?? true,
       temapuan:       json['temapuan']                                  ?? true,
-      apiEntegrasyon: json['api_entegrasyon'] ?? json['apiEntegrasyon'] ?? true,
-      smsGonderim:    json['sms_gonderim']    ?? json['smsGonderim']    ?? true,
+      apiEntegrasyon: json['api_entegrasyon'] ?? json['apiEntegrasyon'] ?? false,
+      smsGonderim:    json['sms_gonderim']    ?? json['smsGonderim']    ?? false,
       kampanyalar:    json['kampanyalar']                               ?? true,
-      sanalPos:       json['sanal_pos']       ?? json['sanalPos']       ?? true,
-      softPos:        json['soft_pos']        ?? json['softPos']        ?? true,
-      eFatura:        json['e_fatura']        ?? json['eFatura']        ?? true,
-      serbestKurye:   json['serbest_kurye']   ?? json['serbestKurye']   ?? true,
+      sanalPos:       json['sanal_pos']       ?? json['sanalPos']       ?? false,
+      softPos:        json['soft_pos']        ?? json['softPos']        ?? false,
+      eFatura:        json['e_fatura']        ?? json['eFatura']        ?? false,
+      serbestKurye:   json['serbest_kurye']   ?? json['serbestKurye']   ?? false,
     );
   }
 
@@ -76,11 +76,11 @@ class FeatureFlagsService {
   static int _offlineCount = 0;
 
   /// Sunucu müsait değilken polling aralığını uzatır (backoff)
-  /// 0-2 hata: 2sn, 3-5 hata: 10sn, 6+ hata: 30sn
+  /// Başarılı bağlantıda 60sn; hatalarda 2 ve 5 dakikaya kadar backoff.
   static Duration get recommendedPollInterval {
-    if (_offlineCount <= 2) return const Duration(seconds: 2);
-    if (_offlineCount <= 5) return const Duration(seconds: 10);
-    return const Duration(seconds: 30);
+    if (_offlineCount == 0) return const Duration(seconds: 60);
+    if (_offlineCount <= 2) return const Duration(minutes: 2);
+    return const Duration(minutes: 5);
   }
 
   static FeatureFlags get current => _current;

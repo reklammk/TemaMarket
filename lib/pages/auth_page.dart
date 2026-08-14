@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 
 class AuthPage extends StatefulWidget {
@@ -20,9 +21,10 @@ class AuthPage extends StatefulWidget {
 
 class _AuthPageState extends State<AuthPage> {
   late String _selectedRole;
-  final TextEditingController _phoneController =
-      TextEditingController(text: '5551234567');
+  final TextEditingController _phoneController = TextEditingController();
   bool _isLoading = false;
+  bool _privacyAcknowledged = false;
+  bool _smsConsent = false;
 
   @override
   void initState() {
@@ -30,9 +32,36 @@ class _AuthPageState extends State<AuthPage> {
     _selectedRole = widget.defaultRole;
   }
 
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  String? _normalizedPhone() {
+    var digits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 12 && digits.startsWith('90')) {
+      digits = digits.substring(2);
+    }
+    if (digits.length == 11 && digits.startsWith('0')) {
+      digits = digits.substring(1);
+    }
+    if (digits.length != 10 || !digits.startsWith('5')) return null;
+    return '+90$digits';
+  }
+
+  Future<void> _openPrivacyPolicy() async {
+    final uri = Uri.parse('https://temasanalmarket.com/kvkk');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('KVKK sayfası açılamadı.')),
+      );
+    }
+  }
+
   void _sendOtp() async {
-    final raw = _phoneController.text.replaceAll(RegExp(r'\D'), '');
-    if (raw.length < 10) {
+    final phone = _normalizedPhone();
+    if (phone == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Lütfen geçerli bir telefon numarası girin.'),
@@ -41,31 +70,41 @@ class _AuthPageState extends State<AuthPage> {
       );
       return;
     }
+    if (_selectedRole == 'Customer' && !_privacyAcknowledged) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Devam etmek için KVKK aydınlatma metnini okuyun.'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
-    String mockCode = '';
     try {
-      final phone = '+90$raw';
-      final res = await ApiService.sendOtp(phone);
-      mockCode = (res['data']?['mock_otp_code'] ??
-              res['demo_code'] ??
-              res['mock_otp_code'] ??
-              '')
-          .toString();
-    } catch (_) {
-      mockCode = '';
+      await ApiService.sendOtp(
+        phone,
+        role: _selectedRole,
+        privacyAcknowledged: _privacyAcknowledged,
+        smsConsent: _smsConsent,
+      );
+      if (mounted) _showOtpModal();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString()),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-
-    if (!mounted) return;
-
-    // Pop-up Modal (Bottom Sheet) ile SMS Doğrulama Kodu Giriş Alanını Aç
-    _showOtpModal(mockCode);
   }
 
-  void _showOtpModal(String prefilledCode) {
-    final otpController = TextEditingController(text: prefilledCode);
+  void _showOtpModal() {
+    final otpController = TextEditingController();
     bool verifying = false;
     String? errorText;
 
@@ -87,9 +126,15 @@ class _AuthPageState extends State<AuthPage> {
                 errorText = null;
               });
               try {
-                final phone =
-                    '+90${_phoneController.text.replaceAll(RegExp(r'\D'), '')}';
-                final res = await ApiService.verifyOtp(phone, code);
+                final phone = _normalizedPhone();
+                if (phone == null) {
+                  throw const ApiException('Telefon numarası geçersiz.');
+                }
+                final res = await ApiService.verifyOtp(
+                  phone,
+                  code,
+                  expectedRole: _selectedRole,
+                );
 
                 if (!ctx.mounted) return;
                 Navigator.pop(ctx);
@@ -97,10 +142,6 @@ class _AuthPageState extends State<AuthPage> {
                 final Map<String, dynamic> rawUser = res['user'] ?? res;
                 final Map<String, dynamic> user =
                     Map<String, dynamic>.from(rawUser);
-
-                if (user['role'] == null || user['role'].toString().isEmpty) {
-                  user['role'] = _selectedRole;
-                }
 
                 widget.onLoginSuccess?.call(user);
               } catch (e) {
@@ -148,7 +189,7 @@ class _AuthPageState extends State<AuthPage> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '+90 ${_phoneController.text} numarasına gönderilen 6 haneli doğrulama kodunu giriniz.',
+                        '${_normalizedPhone() ?? _phoneController.text} numarasına gönderilen 6 haneli doğrulama kodunu giriniz.',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                             fontSize: 13, color: Color(0xFF64748B)),
@@ -170,7 +211,7 @@ class _AuthPageState extends State<AuthPage> {
                           color: Color(0xFF0F172A),
                         ),
                         decoration: InputDecoration(
-                          hintText: '123987',
+                          hintText: '••••••',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide:
@@ -436,7 +477,40 @@ class _AuthPageState extends State<AuthPage> {
                         ),
                         onSubmitted: (_) => _sendOtp(),
                       ),
-                      const SizedBox(height: 24),
+                      if (_selectedRole == 'Customer') ...[
+                        const SizedBox(height: 10),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          value: _privacyAcknowledged,
+                          onChanged: (value) => setState(
+                            () => _privacyAcknowledged = value ?? false,
+                          ),
+                          title: const Text(
+                            'KVKK aydınlatma metnini okudum.',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: _openPrivacyPolicy,
+                            child: const Text('Aydınlatma metnini görüntüle'),
+                          ),
+                        ),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          value: _smsConsent,
+                          onChanged: (value) =>
+                              setState(() => _smsConsent = value ?? false),
+                          title: const Text(
+                            'Kampanya ve fırsatlar için SMS almak istiyorum (isteğe bağlı).',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
                         height: 52,

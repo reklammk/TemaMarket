@@ -3,447 +3,374 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-/// TEMASAN ERP — Canlı API Servisi
+/// TEMA Market canlı API istemcisi.
 ///
-/// ⚠️  MOCK DATA YOKTUR.
-/// Tüm veriler temasanalmarket.com canlı veritabanından gelir.
-/// Sunucu kapalıysa uygulama hata gösterir, sahte veri kullanmaz.
+/// Production derlemelerinde yalnızca HTTPS kullanılır. Yerel geliştirme için:
+/// `--dart-define=API_BASE_URL=http://10.0.2.2:8000/api`
 class ApiService {
-  // ─────────────────────────────────────────────────────────────
-  //  SUNUCU YAPISI
-  //  Tek kaynak: canlı production sunucu
-  // ─────────────────────────────────────────────────────────────
-  //  SUNUCU UÇ NOKTALARI (Yerel Laravel + Canlı Sunucu)
-  // ─────────────────────────────────────────────────────────────
-  static const List<String> apiEndpoints = [
-    'https://temasanalmarket.com/api',
-    'http://127.0.0.1:8000/api',
-    'http://10.0.2.2:8000/api',
-  ];
+  static const String _configuredBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://temasanalmarket.com/api',
+  );
 
-  static String baseUrl = apiEndpoints.first;
+  static final String baseUrl = _configuredBaseUrl.endsWith('/')
+      ? _configuredBaseUrl.substring(0, _configuredBaseUrl.length - 1)
+      : _configuredBaseUrl;
 
-  // Kullanıcı Sanctum token'ı (giriş sonrası set edilir)
   static String? _authToken;
   static Map<String, dynamic>? _currentUser;
 
+  static Map<String, dynamic>? get currentUser => _currentUser;
+  static bool get isLoggedIn =>
+      _authToken != null && _authToken!.isNotEmpty && _currentUser != null;
+
   static void setAuthToken(String token) => _authToken = token;
   static void setCurrentUser(Map<String, dynamic> user) => _currentUser = user;
+
   static void clearAuth() {
     _authToken = null;
     _currentUser = null;
   }
 
-  static Map<String, dynamic>? get currentUser => _currentUser;
-  static bool get isLoggedIn => _authToken != null;
-
-  // ─────────────────────────────────────────────────────────────
-  //  HTTP HEADERS
-  // ─────────────────────────────────────────────────────────────
   static Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    if (_authToken != null) 'Authorization': 'Bearer $_authToken',
-  };
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+      };
 
-  // ─────────────────────────────────────────────────────────────
-  //  FEATURE FLAGS
-  // ─────────────────────────────────────────────────────────────
-  static Future<Map<String, dynamic>?> fetchFeatureFlags() async {
-    for (final endpoint in apiEndpoints) {
-      try {
-        final response = await http
-            .get(Uri.parse('$endpoint/feature-flags'), headers: _headers)
-            .timeout(const Duration(seconds: 3));
-
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          if (data is Map<String, dynamic>) {
-            if (data['flags'] != null && data['flags'] is Map) {
-              baseUrl = endpoint; // Çalışan endpoint'i kaydet
-              return Map<String, dynamic>.from(data['flags']);
-            } else if (data['sanal_market'] != null || data['sanalMarket'] != null) {
-              baseUrl = endpoint;
-              return Map<String, dynamic>.from(data);
-            }
-          }
-        }
-      } catch (_) {}
+  static void _ensureEndpointIsAllowed() {
+    final uri = Uri.tryParse(baseUrl);
+    if (uri == null || uri.host.isEmpty) {
+      throw const ApiException('API adresi geçersiz.');
     }
+    if (kReleaseMode && uri.scheme != 'https') {
+      throw const ApiException(
+        'Güvenli olmayan API adresi release sürümünde kullanılamaz.',
+      );
+    }
+  }
 
-    return null;
+  static Future<Map<String, dynamic>> _request(
+    String method,
+    String path, {
+    Map<String, String>? query,
+    Map<String, dynamic>? body,
+    Map<String, String>? extraHeaders,
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    _ensureEndpointIsAllowed();
+    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
+    final headers = {..._headers, ...?extraHeaders};
+
+    try {
+      late http.Response response;
+      final encodedBody = body == null ? null : json.encode(body);
+      switch (method) {
+        case 'GET':
+          response = await http.get(uri, headers: headers).timeout(timeout);
+          break;
+        case 'POST':
+          response = await http
+              .post(uri, headers: headers, body: encodedBody)
+              .timeout(timeout);
+          break;
+        case 'PUT':
+          response = await http
+              .put(uri, headers: headers, body: encodedBody)
+              .timeout(timeout);
+          break;
+        case 'PATCH':
+          response = await http
+              .patch(uri, headers: headers, body: encodedBody)
+              .timeout(timeout);
+          break;
+        default:
+          throw ApiException('Desteklenmeyen HTTP yöntemi: $method');
+      }
+
+      Map<String, dynamic> decoded;
+      try {
+        final raw = json.decode(response.body);
+        if (raw is! Map) {
+          throw const FormatException('Response is not an object');
+        }
+        decoded = Map<String, dynamic>.from(raw);
+      } on FormatException {
+        throw ApiException(
+          'Sunucu geçersiz bir yanıt döndürdü.',
+          response.statusCode,
+        );
+      }
+
+      final successStatus =
+          response.statusCode >= 200 && response.statusCode < 300;
+      if (!successStatus || decoded['success'] == false) {
+        if (response.statusCode == 401 && path != '/auth/verify-otp') {
+          clearAuth();
+        }
+        throw ApiException(
+          decoded['message']?.toString() ?? 'İşlem gerçekleştirilemedi.',
+          response.statusCode,
+        );
+      }
+      return decoded;
+    } on TimeoutException {
+      throw const ApiException('Sunucu yanıt vermedi. Lütfen tekrar deneyin.');
+    } on ApiException {
+      rethrow;
+    } catch (error) {
+      debugPrint('API request failed: $method $path — $error');
+      throw const ApiException(
+        'Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edin.',
+      );
+    }
+  }
+
+  static List<dynamic> _dataList(Map<String, dynamic> response) {
+    final data = response['data'];
+    if (data == null) return [];
+    if (data is! List) {
+      throw const ApiException('Sunucu liste yerine geçersiz veri döndürdü.');
+    }
+    return List<dynamic>.from(data);
+  }
+
+  static Map<String, dynamic> _dataMap(Map<String, dynamic> response) {
+    final data = response['data'];
+    if (data is! Map) {
+      throw const ApiException('Sunucu geçersiz veri döndürdü.');
+    }
+    return Map<String, dynamic>.from(data);
+  }
+
+  static Future<Map<String, dynamic>?> fetchFeatureFlags() async {
+    final response = await _request(
+      'GET',
+      '/feature-flags',
+      timeout: const Duration(seconds: 5),
+    );
+    final flags = response['flags'];
+    if (flags is! Map) {
+      throw const ApiException('Özellik ayarları geçersiz.');
+    }
+    return Map<String, dynamic>.from(flags);
   }
 
   static Future<bool> saveFeatureFlags(Map<String, dynamic> flags) async {
-    bool success = false;
-    for (final endpoint in apiEndpoints) {
-      try {
-        final response = await http
-            .post(
-              Uri.parse('$endpoint/feature-flags'),
-              headers: _headers,
-              body: json.encode({'flags': flags}),
-            )
-            .timeout(const Duration(seconds: 4));
-
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          if (data['success'] == true) success = true;
-        }
-      } catch (_) {}
-    }
-    return success;
+    final response = await _request(
+      'POST',
+      '/feature-flags',
+      body: {'flags': flags},
+    );
+    return response['success'] == true;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  KİMLİK DOĞRULAMA
-  // ─────────────────────────────────────────────────────────────
-
-  /// OTP kodu gönder
-  static Future<Map<String, dynamic>> sendOtp(String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-    for (final endpoint in apiEndpoints) {
-      try {
-        final response = await http.post(
-          Uri.parse('$endpoint/auth/send-otp'),
-          headers: _headers,
-          body: json.encode({'phone': cleanPhone}),
-        ).timeout(const Duration(seconds: 4));
-
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          if (data is Map<String, dynamic>) {
-            baseUrl = endpoint;
-            return data;
-          }
-        }
-      } catch (_) {}
-    }
-    return {'success': true, 'data': {'mock_otp_code': '123987'}, 'mock_otp_code': '123987'};
+  static Future<Map<String, dynamic>> sendOtp(
+    String phone, {
+    required String role,
+    required bool privacyAcknowledged,
+    bool smsConsent = false,
+  }) {
+    return _request(
+      'POST',
+      '/auth/send-otp',
+      body: {
+        'phone': phone,
+        'role': role,
+        'privacy_acknowledged': privacyAcknowledged,
+        'sms_consent': smsConsent,
+      },
+    );
   }
 
-  /// OTP doğrula ve token al
-  static Future<Map<String, dynamic>> verifyOtp(String phone, String code) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-
-    for (final endpoint in apiEndpoints) {
-      try {
-        final response = await http.post(
-          Uri.parse('$endpoint/auth/verify-otp'),
-          headers: _headers,
-          body: json.encode({'phone': cleanPhone, 'code': code}),
-        ).timeout(const Duration(seconds: 10));
-
-        if (response.statusCode != 200 && response.statusCode != 201) continue;
-
-        final raw = json.decode(response.body);
-        if (raw is! Map<String, dynamic>) continue;
-
-        // Sunucu response yapıları (hepsini destekle):
-        // 1. { success: true, data: { access_token, user } }
-        // 2. { success: true, user: {...}, token: '...' }
-        // 3. { access_token: '...', user: {...} }
-        // 4. { success: false } → atla
-        final success = raw['success'];
-        if (success == false) {
-          // Bu endpoint başarısız dedi, sonrakine geçme — hata mesajını al
-          final msg = raw['message']?.toString() ?? 'Doğrulama kodu hatalı.';
-          throw ApiException(msg, response.statusCode);
-        }
-
-        // Token ve user'ı farklı yapılardan çıkar
-        final inner   = raw['data'] is Map ? raw['data'] as Map<String, dynamic> : raw;
-        final token   = inner['access_token'] ?? inner['token'] ?? raw['access_token'] ?? raw['token'];
-        final userRaw = inner['user'] ?? raw['user'];
-
-        if (token != null) setAuthToken(token.toString());
-
-        Map<String, dynamic> user;
-        if (userRaw is Map<String, dynamic>) {
-          user = userRaw;
-        } else if (userRaw != null) {
-          user = Map<String, dynamic>.from(userRaw as Map);
-        } else {
-          // User objesi yoksa raw'dan kendimiz oluştur
-          user = Map<String, dynamic>.from(inner.isNotEmpty ? inner : raw);
-        }
-
-        if (user.isNotEmpty) setCurrentUser(user);
-        baseUrl = endpoint;
-        return {'user': user, 'token': token, ...raw};
-      } on ApiException {
-        rethrow;
-      } catch (_) {
-        continue;
-      }
+  static Future<Map<String, dynamic>> verifyOtp(
+    String phone,
+    String code, {
+    required String expectedRole,
+  }) async {
+    final response = await _request(
+      'POST',
+      '/auth/verify-otp',
+      body: {'phone': phone, 'code': code},
+    );
+    final token = response['token']?.toString();
+    final rawUser = response['user'];
+    if (token == null || token.length < 32 || rawUser is! Map) {
+      throw const ApiException('Sunucu geçerli bir oturum oluşturmadı.');
     }
-
-    // Hiçbir endpoint çalışmadı — yine de login ettir (offline mod)
-    debugPrint('verifyOtp: Tüm endpointler başarısız, offline login yapılıyor.');
-    final offlineUser = {
-      'id': 1,
-      'name': 'TEMA Müşteri',
-      'phone': cleanPhone,
-      'role': 'Customer',
-      'points': 450,
-    };
-    setCurrentUser(offlineUser);
-    return {'user': offlineUser, 'offline': true};
+    final user = Map<String, dynamic>.from(rawUser);
+    if (user['role']?.toString() != expectedRole) {
+      throw const ApiException(
+        'Hesap rolü seçilen giriş türüyle eşleşmiyor.',
+        403,
+      );
+    }
+    setAuthToken(token);
+    setCurrentUser(user);
+    return {'user': user, 'token': token};
   }
 
-  /// Oturumu kapat
   static Future<void> logout() async {
     try {
-      await http.post(
-        Uri.parse('$baseUrl/auth/logout'),
-        headers: _headers,
-      ).timeout(const Duration(seconds: 5));
-    } catch (_) {}
-    clearAuth();
+      if (_authToken != null) {
+        await _request(
+          'POST',
+          '/auth/logout',
+          timeout: const Duration(seconds: 5),
+        );
+      }
+    } finally {
+      clearAuth();
+    }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  ÜRÜNLER
-  // ─────────────────────────────────────────────────────────────
   static Future<List<dynamic>> fetchProducts({
     String? category,
     String? search,
     int? branchId,
-    int page = 1,
-    int perPage = 20,
   }) async {
-    final params = <String, String>{
-      'page':     '$page',
-      'per_page': '$perPage',
-    };
-    if (category != null && category != 'Tümü') params['sub_brand'] = category;
-    if (search   != null && search.isNotEmpty) params['search'] = search;
-    if (branchId != null) params['branch_id'] = '$branchId';
-
-    final response = await http
-        .get(Uri.parse('$baseUrl/products').replace(queryParameters: params), headers: _headers)
-        .timeout(const Duration(seconds: 10));
-
-    final data = json.decode(response.body);
-    if (response.statusCode == 200 && data['success'] == true) {
-      return List<dynamic>.from(data['data'] ?? []);
+    final query = <String, String>{};
+    if (category != null && category != 'Tümü') {
+      query['sub_brand'] = category;
     }
-    throw ApiException(data['message'] ?? 'Ürünler alınamadı.', response.statusCode);
+    if (search != null && search.trim().isNotEmpty) {
+      query['search'] = search.trim();
+    }
+    if (branchId != null && branchId > 0) query['branch_id'] = '$branchId';
+    return _dataList(await _request('GET', '/products', query: query));
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  KAMPANYALAR
-  // ─────────────────────────────────────────────────────────────
-  static Future<List<dynamic>> fetchCampaigns() async {
-    final response = await http
-        .get(Uri.parse('$baseUrl/campaigns'), headers: _headers)
-        .timeout(const Duration(seconds: 10));
+  static Future<List<dynamic>> fetchCampaigns() async =>
+      _dataList(await _request('GET', '/campaigns'));
 
-    final data = json.decode(response.body);
-    if (response.statusCode == 200 && data['success'] == true) {
-      return List<dynamic>.from(data['data'] ?? []);
+  static Future<List<dynamic>> fetchBranches() async =>
+      _dataList(await _request('GET', '/branches'));
+
+  static Future<Map<String, dynamic>> updateProfilePreferences({
+    required bool smsConsent,
+  }) async {
+    final response = await _request(
+      'POST',
+      '/user/profile/update',
+      body: {'sms_consent': smsConsent, 'push_consent': false},
+    );
+    final userRaw = response['user'];
+    if (userRaw is! Map) {
+      throw const ApiException('Profil güncellenemedi.');
     }
-    throw ApiException(data['message'] ?? 'Kampanyalar alınamadı.', response.statusCode);
+    final user = Map<String, dynamic>.from(userRaw);
+    setCurrentUser(user);
+    return user;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  ŞUBELERİ ÇEK (Canlı API)
-  // ─────────────────────────────────────────────────────────────
-  static Future<List<dynamic>> fetchBranches() async {
-    try {
-      final response = await http
-          .get(Uri.parse('$baseUrl/branches'), headers: _headers)
-          .timeout(const Duration(seconds: 8));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true && data['data'] != null) {
-          return List<dynamic>.from(data['data']);
-        }
-      }
-    } catch (e) {
-      debugPrint('fetchBranches error: $e');
-    }
-    return [];
+  static Future<Map<String, dynamic>> lookupCustomerByPhone(
+    String phone,
+  ) async {
+    return _dataMap(await _request(
+      'GET',
+      '/customer/lookup',
+      query: {'phone': phone},
+    ));
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  MÜŞTERİ SORGULAMA (NFC / Barkod / Telefon No)
-  // ─────────────────────────────────────────────────────────────
-  static Future<Map<String, dynamic>> lookupCustomerByPhone(String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-    final response = await http
-        .get(
-          Uri.parse('$baseUrl/customer/lookup').replace(
-            queryParameters: {'phone': cleanPhone},
-          ),
-          headers: _headers,
-        )
-        .timeout(const Duration(seconds: 8));
-
-    final data = json.decode(response.body);
-    if (response.statusCode == 200 && data['success'] == true) {
-      return Map<String, dynamic>.from(data['data'] ?? data);
-    }
-    throw ApiException(data['message'] ?? 'Müşteri bulunamadı.', response.statusCode);
-  }
-
-  /// Müşteriye puan ekle / çıkar
   static Future<Map<String, dynamic>> awardPoints({
     required String phone,
     required int points,
-    required String type, // 'Kazanım' | 'Kullanım' | 'İptal' | 'Düzeltme'
+    required String type,
     String? description,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/customer/award-points'),
-      headers: _headers,
-      body: json.encode({
-        'phone':       phone.replaceAll(RegExp(r'\D'), ''),
-        'points':      points,
-        'type':        type,
+    return _dataMap(await _request(
+      'POST',
+      '/customer/award-points',
+      body: {
+        'phone': phone,
+        'points': points,
+        'type': type,
         'description': description,
-      }),
-    ).timeout(const Duration(seconds: 8));
-
-    final data = json.decode(response.body);
-    if (response.statusCode == 200 && data['success'] == true) {
-      return Map<String, dynamic>.from(data['data'] ?? data);
-    }
-    throw ApiException(data['message'] ?? 'Puan işlemi başarısız.', response.statusCode);
+      },
+    ));
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  SİPARİŞ OLUŞTURMA
-  // ─────────────────────────────────────────────────────────────
-  static Future<Map<String, dynamic>> createOrder(Map<String, dynamic> orderPayload) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/orders'),
-      headers: _headers,
-      body: json.encode(orderPayload),
-    ).timeout(const Duration(seconds: 15));
-
-    final data = json.decode(response.body);
-    if ((response.statusCode == 200 || response.statusCode == 201) &&
-        data['success'] == true) {
-      return Map<String, dynamic>.from(data['data'] ?? data);
-    }
-    throw ApiException(data['message'] ?? 'Sipariş oluşturulamadı.', response.statusCode);
+  static String createIdempotencyKey() {
+    final userId = _currentUser?['id'] ?? 'anonymous';
+    return 'order-$userId-${DateTime.now().microsecondsSinceEpoch}';
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  DASHBOARD METRİKLERİ
-  // ─────────────────────────────────────────────────────────────
-  static Future<Map<String, dynamic>> fetchDashboardMetrics() async {
-    final response = await http
-        .get(Uri.parse('$baseUrl/dashboard/metrics'), headers: _headers)
-        .timeout(const Duration(seconds: 10));
-
-    final data = json.decode(response.body);
-    if (response.statusCode == 200 && data['success'] == true) {
-      return Map<String, dynamic>.from(data['data'] ?? data);
-    }
-    throw ApiException(data['message'] ?? 'Metrikler alınamadı.', response.statusCode);
+  static Future<Map<String, dynamic>> createOrder(
+    Map<String, dynamic> orderPayload, {
+    required String idempotencyKey,
+  }) async {
+    final response = await _request(
+      'POST',
+      '/orders',
+      body: {...orderPayload, 'idempotency_key': idempotencyKey},
+      extraHeaders: {'X-Idempotency-Key': idempotencyKey},
+      timeout: const Duration(seconds: 20),
+    );
+    return _dataMap(response);
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  SADAKAT PUAN KURALLARI
-  // ─────────────────────────────────────────────────────────────
-  static Future<Map<String, dynamic>> fetchLoyaltyRules() async {
-    final response = await http
-        .get(Uri.parse('$baseUrl/loyalty/rules'), headers: _headers)
-        .timeout(const Duration(seconds: 8));
+  static Future<Map<String, dynamic>> fetchDashboardMetrics() async =>
+      _dataMap(await _request('GET', '/admin/metrics'));
 
-    final data = json.decode(response.body);
-    if (response.statusCode == 200 && data['success'] == true) {
-      return Map<String, dynamic>.from(data['data'] ?? data);
-    }
-    throw ApiException(data['message'] ?? 'Sadakat kuralları alınamadı.', response.statusCode);
+  static Future<Map<String, dynamic>> fetchLoyaltyRules() async =>
+      _dataMap(await _request('GET', '/loyalty/rules'));
+
+  static Future<bool> updateLoyaltyRules(
+    Map<String, dynamic> rules,
+  ) async {
+    final response = await _request('PUT', '/loyalty/rules', body: rules);
+    return response['success'] == true;
   }
 
-  static Future<bool> updateLoyaltyRules(Map<String, dynamic> rules) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/loyalty/rules'),
-      headers: _headers,
-      body: json.encode(rules),
-    ).timeout(const Duration(seconds: 8));
-
-    final data = json.decode(response.body);
-    return response.statusCode == 200 && data['success'] == true;
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  //  KURYELER
-  // ─────────────────────────────────────────────────────────────
   static Future<List<dynamic>> fetchCouriers({int? branchId}) async {
-    final params = <String, String>{};
-    if (branchId != null) params['branch_id'] = '$branchId';
-
-    final response = await http
-        .get(Uri.parse('$baseUrl/couriers').replace(queryParameters: params), headers: _headers)
-        .timeout(const Duration(seconds: 8));
-
-    final data = json.decode(response.body);
-    if (response.statusCode == 200 && data['success'] == true) {
-      return List<dynamic>.from(data['data'] ?? []);
-    }
-    throw ApiException(data['message'] ?? 'Kuryeler alınamadı.', response.statusCode);
+    final query = <String, String>{};
+    if (branchId != null && branchId > 0) query['branch_id'] = '$branchId';
+    return _dataList(await _request('GET', '/couriers', query: query));
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  SİPARİŞLER
-  // ─────────────────────────────────────────────────────────────
   static Future<List<dynamic>> fetchOrders({
     String? status,
     int? branchId,
-    int page = 1,
   }) async {
-    final params = <String, String>{'page': '$page'};
-    if (status   != null) params['status']    = status;
-    if (branchId != null) params['branch_id'] = '$branchId';
-
-    final response = await http
-        .get(Uri.parse('$baseUrl/orders').replace(queryParameters: params), headers: _headers)
-        .timeout(const Duration(seconds: 10));
-
-    final data = json.decode(response.body);
-    if (response.statusCode == 200 && data['success'] == true) {
-      return List<dynamic>.from(data['data'] ?? []);
-    }
-    throw ApiException(data['message'] ?? 'Siparişler alınamadı.', response.statusCode);
+    final query = <String, String>{};
+    if (status != null && status.isNotEmpty) query['status'] = status;
+    if (branchId != null && branchId > 0) query['branch_id'] = '$branchId';
+    return _dataList(await _request('GET', '/orders', query: query));
   }
 
   static Future<bool> updateOrderStatus(int orderId, String status) async {
-    final response = await http.patch(
-      Uri.parse('$baseUrl/orders/$orderId/status'),
-      headers: _headers,
-      body: json.encode({'status': status}),
-    ).timeout(const Duration(seconds: 8));
-
-    final data = json.decode(response.body);
-    return response.statusCode == 200 && data['success'] == true;
+    final response = await _request(
+      'PATCH',
+      '/orders/$orderId/status',
+      body: {'status': status},
+    );
+    return response['success'] == true;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  GENEL YARDIMCI
-  // ─────────────────────────────────────────────────────────────
+  static Future<bool> updateProductStock(int productId, int stock) async {
+    final response = await _request(
+      'POST',
+      '/products/update-stock',
+      body: {'product_id': productId, 'stock': stock},
+    );
+    return response['success'] == true;
+  }
 
-  /// Sunucu bağlantısını test et
   static Future<bool> healthCheck() async {
     try {
-      final response = await http
-          .get(Uri.parse('https://temasanalmarket.com/api/health'))
-          .timeout(const Duration(seconds: 5));
-      return response.statusCode == 200;
+      final response = await _request(
+        'GET',
+        '/health',
+        timeout: const Duration(seconds: 5),
+      );
+      return response['success'] == true;
     } catch (_) {
       return false;
     }
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-//  API İSTİSNA SINIFI
-// ─────────────────────────────────────────────────────────────
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
@@ -451,5 +378,5 @@ class ApiException implements Exception {
   const ApiException(this.message, [this.statusCode]);
 
   @override
-  String toString() => 'ApiException($statusCode): $message';
+  String toString() => message;
 }

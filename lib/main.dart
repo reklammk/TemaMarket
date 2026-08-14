@@ -1,7 +1,6 @@
 import 'dart:ui';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'services/notification_service.dart';
+import 'services/api_service.dart';
 import 'pages/splash_screen_page.dart';
 import 'pages/auth_page.dart';
 import 'pages/customer_storefront_page.dart';
@@ -12,15 +11,15 @@ import 'pages/admin_dashboard_page.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // iOS ve Android Global Çökme Önleyici (Global Error Handler)
+  // Hataları görünür ve raporlanabilir tut; bozuk durumu "işlendi" diye gizleme.
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
-    debugPrint('Global Flutter Hatası Yakalandı: ${details.exception}');
   };
 
   PlatformDispatcher.instance.onError = (error, stack) {
     debugPrint('Platform Asenkron Hata Yakalandı: $error');
-    return true; // Uygulamanın çökmesini engelle
+    debugPrintStack(stackTrace: stack);
+    return false;
   };
 
   runApp(const TemasanApp());
@@ -36,11 +35,6 @@ class TemasanApp extends StatefulWidget {
 class _TemasanAppState extends State<TemasanApp> {
   Map<String, dynamic>? _currentUser;
   String _currentRoute = 'splash';
-
-  @override
-  void initState() {
-    super.initState();
-  }
 
   void _handleLoginSuccess(Map<String, dynamic> user) {
     setState(() {
@@ -59,11 +53,24 @@ class _TemasanAppState extends State<TemasanApp> {
 
   }
 
-  void _handleLogout() {
+  Future<void> _handleLogout() async {
+    await ApiService.logout();
+    if (!mounted) return;
     setState(() {
       _currentUser = null;
       _currentRoute = 'auth';
     });
+  }
+
+  bool _hasRole(String role) =>
+      ApiService.isLoggedIn && _currentUser?['role']?.toString() == role;
+
+  Widget _buildAuthPage(String role) {
+    return AuthPage(
+      defaultRole: role,
+      onLoginSuccess: _handleLoginSuccess,
+      onClose: () => setState(() => _currentRoute = 'storefront'),
+    );
   }
 
   @override
@@ -167,21 +174,21 @@ class _TemasanAppState extends State<TemasanApp> {
           onFinish: () => setState(() => _currentRoute = 'storefront'),
         );
       case 'auth':
-        return AuthPage(
-          onLoginSuccess: _handleLoginSuccess,
-          onClose: () => setState(() => _currentRoute = 'storefront'),
-        );
+        return _buildAuthPage('Customer');
       case 'admin':
+        if (!_hasRole('SuperAdmin')) return _buildAuthPage('SuperAdmin');
         return AdminDashboardPage(
           user: _currentUser,
           onBackToStore: () => setState(() => _currentRoute = 'storefront'),
         );
       case 'merchant':
+        if (!_hasRole('Merchant')) return _buildAuthPage('Merchant');
         return MerchantPanelPage(
           user: _currentUser,
           onBackToStore: () => setState(() => _currentRoute = 'storefront'),
         );
       case 'courier':
+        if (!_hasRole('Courier')) return _buildAuthPage('Courier');
         return CourierPanelPage(
           user: _currentUser,
           onBackToStore: () => setState(() => _currentRoute = 'storefront'),
@@ -191,9 +198,15 @@ class _TemasanAppState extends State<TemasanApp> {
         return CustomerStorefrontPage(
           user: _currentUser,
           onOpenLogin: () => setState(() => _currentRoute = 'auth'),
-          onOpenAdmin: () => setState(() => _currentRoute = 'admin'),
-          onOpenMerchant: () => setState(() => _currentRoute = 'merchant'),
-          onOpenCourier: () => setState(() => _currentRoute = 'courier'),
+          onOpenAdmin: _hasRole('SuperAdmin')
+              ? () => setState(() => _currentRoute = 'admin')
+              : null,
+          onOpenMerchant: _hasRole('Merchant')
+              ? () => setState(() => _currentRoute = 'merchant')
+              : null,
+          onOpenCourier: _hasRole('Courier')
+              ? () => setState(() => _currentRoute = 'courier')
+              : null,
           onLogout: _handleLogout,
         );
     }
