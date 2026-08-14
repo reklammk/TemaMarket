@@ -1,9 +1,6 @@
-import 'dart:async';
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:video_player/video_player.dart';
 import '../widgets/tema_logo_painter.dart';
 
 /// TEMA Market Splash Ekranı
@@ -24,14 +21,8 @@ class SplashScreenPage extends StatefulWidget {
 class _SplashScreenPageState extends State<SplashScreenPage>
     with TickerProviderStateMixin {
   // ─── Video ───
-  VideoPlayerController? _videoController;
-  bool _isVideoReady = false;
   bool _isDisposed = false;
   bool _finishedCalled = false;
-
-  // ─── Animasyon modu ───
-  // ignore: unused_field
-  bool _useAnimation = false;
 
   // ─── Arka plan gradient geçişi ───
   late AnimationController _bgController;
@@ -71,7 +62,7 @@ class _SplashScreenPageState extends State<SplashScreenPage>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_isDisposed) {
-        _initVideo();
+        _runAnimationSequence();
       }
     });
 
@@ -153,20 +144,6 @@ class _SplashScreenPageState extends State<SplashScreenPage>
     }
   }
 
-  Future<void> _initVideo() async {
-    // iOS/Android/Web tüm platformlarda AVFoundation/Media çökmesini engellemek için
-    // %100 pürüzsüz 60fps Flutter sinematik amblem animasyonu çalıştırılır.
-    _startAnimationMode();
-  }
-
-  void _startAnimationMode() {
-    if (!mounted) return;
-    setState(() => _useAnimation = true);
-
-    // Sekans başlat
-    _runAnimationSequence();
-  }
-
   Future<void> _runAnimationSequence() async {
     // 1. Arka plan büyür
     _bgController.forward();
@@ -235,16 +212,6 @@ class _SplashScreenPageState extends State<SplashScreenPage>
     _particleController.dispose();
     _fadeOutController.dispose();
 
-    if (_videoController != null) {
-      final c = _videoController;
-      _videoController = null;
-      try {
-        c?.pause();
-        c?.dispose();
-      } catch (e) {
-        debugPrint('Dispose error: $e');
-      }
-    }
     super.dispose();
   }
 
@@ -262,13 +229,7 @@ class _SplashScreenPageState extends State<SplashScreenPage>
               child: child,
             );
           },
-          child: SizedBox.expand(
-            child: (_isVideoReady &&
-                    _videoController != null &&
-                    _videoController!.value.isInitialized)
-                ? _buildVideoPlayer()
-                : _buildAnimationSplash(context),
-          ),
+          child: SizedBox.expand(child: _buildAnimationSplash(context)),
         ),
       ),
     );
@@ -277,21 +238,6 @@ class _SplashScreenPageState extends State<SplashScreenPage>
   // ─────────────────────────────────────────────────────────────
   //  VİDEO OYNATICI
   // ─────────────────────────────────────────────────────────────
-  Widget _buildVideoPlayer() {
-    return FittedBox(
-      fit: BoxFit.cover,
-      child: SizedBox(
-        width: _videoController!.value.size.width > 0
-            ? _videoController!.value.size.width
-            : 1080,
-        height: _videoController!.value.size.height > 0
-            ? _videoController!.value.size.height
-            : 1920,
-        child: VideoPlayer(_videoController!),
-      ),
-    );
-  }
-
   // ─────────────────────────────────────────────────────────────
   //  ANİMASYON SPLASH (video yerine)
   // ─────────────────────────────────────────────────────────────

@@ -16,13 +16,14 @@ echo  TEMA Market Flutter Build Tool
 echo  ================================
 echo.
 
-:: JAVA_HOME ayarla
-set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
+:: JAVA_HOME yalnızca kullanıcı tarafından ayarlanmamışsa tanımla
+if not defined JAVA_HOME if exist "C:\Program Files\Android\Android Studio\jbr\bin\java.exe" set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
 
 :: Junction kontrol et, yoksa oluştur
 if not exist "C:\temasan" (
     echo [*] Junction oluşturuluyor: C:\temasan ...
     mklink /J "C:\temasan" "%~dp0"
+    if errorlevel 1 goto fail
     echo [OK] Junction oluşturuldu.
 ) else (
     echo [OK] Junction mevcut: C:\temasan
@@ -56,7 +57,9 @@ goto build_debug
 :build_debug
 echo [*] Debug APK build ediliyor...
 cd /d "C:\temasan"
+if errorlevel 1 goto fail
 flutter build apk --debug
+if errorlevel 1 goto fail
 echo.
 echo [OK] APK: build\app\outputs\flutter-apk\app-debug.apk
 goto end
@@ -64,7 +67,9 @@ goto end
 :build_release
 echo [*] Release APK build ediliyor...
 cd /d "C:\temasan"
+if errorlevel 1 goto fail
 flutter build apk --release
+if errorlevel 1 goto fail
 echo.
 echo [OK] APK: build\app\outputs\flutter-apk\app-release.apk
 goto end
@@ -72,28 +77,42 @@ goto end
 :install_debug
 echo [*] Debug APK build edilip telefona kuruluyor...
 cd /d "C:\temasan"
-flutter run --release
+if errorlevel 1 goto fail
+flutter run --debug
+if errorlevel 1 goto fail
 goto end
 
 :run_windows
 echo [*] Windows uygulaması başlatılıyor...
 cd /d "C:\temasan"
+if errorlevel 1 goto fail
 flutter run -d windows
+if errorlevel 1 goto fail
 goto end
 
 :run_chrome
 echo [*] Chrome'da başlatılıyor...
 cd /d "C:\temasan"
+if errorlevel 1 goto fail
 flutter run -d chrome
+if errorlevel 1 goto fail
 goto end
 
 :clean
 echo [*] Build cache temizleniyor...
 cd /d "C:\temasan"
+if errorlevel 1 goto fail
 flutter clean
+if errorlevel 1 goto fail
 flutter pub get
+if errorlevel 1 goto fail
 echo [OK] Temizlendi.
 goto end
+
+:fail
+echo.
+echo [HATA] Islem basarisiz oldu. Yukaridaki hata mesajini kontrol edin.
+exit /b 1
 
 :end
 echo.

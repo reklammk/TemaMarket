@@ -24,6 +24,10 @@ workflows:
       - name: Flutter bağımlılıklarını yükle
         script: |
           flutter packages pub get
+      - name: Statik analiz ve testler
+        script: |
+          flutter analyze --fatal-infos
+          flutter test
       - name: iOS Imzalama Profillerini Hazırla
         script: |
           xcode-project use-profiles
@@ -92,6 +96,21 @@ workflows:
       - name: Flutter bağımlılıklarını yükle
         script: |
           flutter packages pub get
+      - name: Statik analiz ve testler
+        script: |
+          flutter analyze --fatal-infos
+          flutter test
+      - name: Android release imzasını hazırla
+        script: |
+          : "${CM_KEYSTORE_PATH:?Codemagic Android signing ayarı eksik}"
+          : "${CM_KEYSTORE_PASSWORD:?Keystore parolası eksik}"
+          : "${CM_KEY_ALIAS:?Key alias eksik}"
+          : "${CM_KEY_PASSWORD:?Key parolası eksik}"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$CM_KEYSTORE_PATH" \
+            "$CM_KEYSTORE_PASSWORD" \
+            "$CM_KEY_ALIAS" \
+            "$CM_KEY_PASSWORD" > android/key.properties
       - name: Android App Bundle (.aab) Oluştur
         script: |
           flutter build aab --release --build-name=1.0.0 --build-number=${BUILD_NUMBER:-1}
