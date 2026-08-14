@@ -7,6 +7,8 @@ workflows:
     name: TEMA Market iOS App Store Build (.ipa)
     max_build_duration: 60
     instance_type: mac_mini_m1
+    integrations:
+      app_store_connect: "Maia Suites Resepsiyon"
     environment:
       flutter: 3.38.9
       xcode: latest
@@ -73,9 +75,7 @@ workflows:
           failure: true
           success: true
       app_store_connect:
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_ID
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        auth: integration
         submit_to_testflight: true
         submit_to_app_store: false
 
