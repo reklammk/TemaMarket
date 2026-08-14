@@ -3,7 +3,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/api_service.dart';
 import '../services/feature_flags_service.dart';
-import '../widgets/tema_logo_painter.dart';
 
 class CustomerStorefrontPage extends StatefulWidget {
   final Map<String, dynamic>? user;
@@ -98,7 +97,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   }
 
   Future<void> _loadProducts() async {
-    if (_branchId == null || !_flags.sanalMarket) {
+    if (_branchId == null) {
       if (mounted) setState(() => _products = []);
       return;
     }
@@ -145,6 +144,13 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   }
 
   void _changeCart(Map<String, dynamic> product, int delta) {
+    if (!_flags.sanalMarket) {
+      _message(
+        'Sanal Market şu an siparişe kapalı. Ürünleri incelemeye devam edebilirsiniz.',
+        error: true,
+      );
+      return;
+    }
     final id = _int(product['id']);
     final stock = _int(product['stock']);
     final index = _cart.indexWhere((line) => _int(line['id']) == id);
@@ -183,12 +189,19 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
-          title: const Row(
-            children: [
-              TemaLogoPainter(size: 36),
-              SizedBox(width: 10),
-              Expanded(child: Text('TEMA Sanal Market')),
-            ],
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          title: Image.asset(
+            'assets/logo.png',
+            height: 28,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const Text(
+              'TEMA Market',
+              style: TextStyle(
+                color: Color(0xFFDC2626),
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ),
           actions: [
             IconButton(
@@ -196,34 +209,253 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                 icon: const Icon(Icons.refresh))
           ],
         ),
-        body: IndexedStack(
-            index: _tab, children: [_market(), _basket(), _account()]),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _tab,
-          onDestinationSelected: (index) => setState(() => _tab = index),
-          destinations: [
-            const NavigationDestination(
-                icon: Icon(Icons.storefront_outlined), label: 'Market'),
-            NavigationDestination(
-              icon: Badge(
-                  isLabelVisible: _cartCount > 0,
-                  label: Text('$_cartCount'),
-                  child: const Icon(Icons.shopping_cart_outlined)),
-              label: 'Sepet',
+        body: _currentTabBody(),
+        bottomNavigationBar: _floatingNavbar(),
+      );
+
+  Widget _currentTabBody() {
+    switch (_tab) {
+      case 1:
+        return _branchesPage();
+      case 2:
+        return _basket();
+      case 3:
+        return _forYouPage();
+      case 4:
+        return _account();
+      case 0:
+      default:
+        return _market();
+    }
+  }
+
+  void _handleNavTap(int index) {
+    if (index == 2 && !_flags.sanalMarket) {
+      _message(
+        'Sanal Market şu an siparişe kapalı. Ürünleri incelemeye devam edebilirsiniz.',
+        error: true,
+      );
+      return;
+    }
+    if (index == 4 && widget.user == null && widget.onOpenLogin != null) {
+      widget.onOpenLogin!.call();
+      return;
+    }
+    setState(() => _tab = index);
+  }
+
+  Widget _floatingNavbar() {
+    const navItems = <({int id, IconData icon, String label})>[
+      (id: 0, icon: Icons.home_rounded, label: 'Ana Sayfa'),
+      (id: 1, icon: Icons.store_rounded, label: 'Şubeler'),
+      (id: 2, icon: Icons.shopping_bag_outlined, label: 'Sepetim'),
+      (id: 3, icon: Icons.auto_awesome_rounded, label: 'Sizin İçin'),
+      (id: 4, icon: Icons.person_rounded, label: 'Hesabım'),
+    ];
+
+    return SafeArea(
+      child: Container(
+        height: 64,
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xDD211E22),
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(color: Colors.white24, width: 1.5),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x4D000000),
+              blurRadius: 24,
+              spreadRadius: 2,
+              offset: Offset(0, 10),
             ),
-            const NavigationDestination(
-                icon: Icon(Icons.person_outline), label: 'Hesabım'),
           ],
         ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: navItems.map((item) {
+            final selected = _tab == item.id;
+            Widget icon = Icon(
+              item.icon,
+              color: selected ? const Color(0xFFDC2626) : Colors.white70,
+              size: 22,
+            );
+            if (item.id == 2 && _flags.sanalMarket && _cartCount > 0) {
+              icon = Badge(label: Text('$_cartCount'), child: icon);
+            }
+
+            return Tooltip(
+              message: item.label,
+              child: Semantics(
+                button: true,
+                selected: selected,
+                label: item.label,
+                child: Material(
+                  color: selected ? Colors.white : Colors.transparent,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => _handleNavTap(item.id),
+                    child: SizedBox.square(
+                      dimension: selected ? 46 : 44,
+                      child: Center(child: icon),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _branchesPage() {
+    if (_loading && _branches.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_branches.isEmpty) {
+      return _Empty(
+        message: _error ?? 'Şube bilgisi bulunamadı.',
+        retry: _load,
       );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: _branches.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Şubelerimiz',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+              ),
+            );
+          }
+          final branch = _branches[index - 1];
+          final id = _int(branch['id']);
+          final selected = id == _branchId;
+          return Card(
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: selected
+                    ? const Color(0xFFDC2626)
+                    : const Color(0xFFF1F5F9),
+                foregroundColor: selected ? Colors.white : Colors.black54,
+                child: const Icon(Icons.store_rounded),
+              ),
+              title: Text(
+                branch['name']?.toString() ?? 'TEMA Market Şubesi',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text(
+                branch['address']?.toString() ??
+                    branch['district']?.toString() ??
+                    'Ürünleri görüntülemek için seçin.',
+              ),
+              trailing: selected
+                  ? const Icon(Icons.check_circle, color: Color(0xFFDC2626))
+                  : const Icon(Icons.chevron_right),
+              onTap: () async {
+                setState(() {
+                  _branchId = id;
+                  _cart.clear();
+                  _category = 'Tümü';
+                  _tab = 0;
+                });
+                await _loadProducts();
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _forYouPage() {
+    final discounted = _products
+        .where((product) =>
+            _double(product['original_price']) > _double(product['base_price']))
+        .toList();
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Text(
+            'Sizin İçin',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 12),
+          if (!_flags.kampanyalar)
+            const _InfoBanner(
+              icon: Icons.campaign_outlined,
+              text: 'Kampanyalar şu anda yayında değil.',
+            )
+          else if (_campaigns.isEmpty)
+            const _InfoBanner(
+              icon: Icons.auto_awesome_outlined,
+              text: 'Şu anda aktif kampanya bulunmuyor.',
+            )
+          else
+            ..._campaigns.map(
+              (campaign) => Card(
+                color: const Color(0xFFB91C1C),
+                child: ListTile(
+                  leading: const Icon(Icons.local_offer, color: Colors.white),
+                  title: Text(
+                    campaign['title']?.toString() ?? 'Kampanya',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  subtitle: Text(
+                    campaign['description']?.toString() ?? '',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ),
+              ),
+            ),
+          if (discounted.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Text(
+              'İndirimli Ürünler',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 10),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 600 ? 3 : 2;
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    mainAxisExtent: 315,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                  ),
+                  itemCount: discounted.length,
+                  itemBuilder: (_, index) => _product(discounted[index]),
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   Widget _market() {
     if (_loading && _branches.isEmpty) {
       return const Center(child: CircularProgressIndicator());
-    }
-    if (!_flags.sanalMarket) {
-      return _Empty(
-          message: 'Sanal market geçici olarak kapalı.', retry: _load);
     }
     if (_branches.isEmpty) {
       return _Empty(
@@ -236,6 +468,14 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
+          if (!_flags.sanalMarket) ...[
+            const _InfoBanner(
+              icon: Icons.lock_clock_outlined,
+              text:
+                  'Sanal Market şu an siparişe kapalı. Ürünleri ve kampanyaları incelemeye devam edebilirsiniz.',
+            ),
+            const SizedBox(height: 12),
+          ],
           DropdownButtonFormField<int>(
             initialValue: _branchId,
             decoration: const InputDecoration(
@@ -390,6 +630,14 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
             const SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(onPressed: null, child: Text('Tükendi')))
+          else if (!_flags.sanalMarket)
+            const SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: null,
+                child: Text('Siparişe kapalı'),
+              ),
+            )
           else if (quantity == 0)
             SizedBox(
                 width: double.infinity,
@@ -414,6 +662,17 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   }
 
   Widget _basket() {
+    if (!_flags.sanalMarket) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: _InfoBanner(
+            icon: Icons.lock_outline,
+            text: 'Sanal Market şu an siparişe kapalı.',
+          ),
+        ),
+      );
+    }
     if (_cart.isEmpty) return const Center(child: Text('Sepetiniz boş.'));
     return Column(children: [
       Expanded(
@@ -456,6 +715,10 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   }
 
   Future<void> _checkout() async {
+    if (!_flags.sanalMarket) {
+      _message('Sanal Market şu an siparişe kapalı.', error: true);
+      return;
+    }
     if (widget.user?['role']?.toString() != 'Customer') {
       _message('Sipariş için müşteri hesabıyla giriş yapın.');
       widget.onOpenLogin?.call();
@@ -636,5 +899,38 @@ class _Empty extends StatelessWidget {
           const SizedBox(height: 12),
           OutlinedButton(onPressed: retry, child: const Text('Tekrar dene')),
         ]),
+      );
+}
+
+class _InfoBanner extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _InfoBanner({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF7ED),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFFED7AA)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: const Color(0xFFC2410C)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  color: Color(0xFF9A3412),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
       );
 }
