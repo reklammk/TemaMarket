@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -252,7 +253,7 @@ class ApiService {
     final response = await _request(
       'POST',
       '/user/profile/update',
-      body: {'sms_consent': smsConsent, 'push_consent': false},
+      body: {'sms_consent': smsConsent},
     );
     final userRaw = response['user'];
     if (userRaw is! Map) {
@@ -292,8 +293,11 @@ class ApiService {
   }
 
   static String createIdempotencyKey() {
-    final userId = _currentUser?['id'] ?? 'anonymous';
-    return 'order-$userId-${DateTime.now().microsecondsSinceEpoch}';
+    final random = Random.secure();
+    final nonce = List<int>.generate(16, (_) => random.nextInt(256))
+        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+        .join();
+    return 'order-${DateTime.now().microsecondsSinceEpoch}-$nonce';
   }
 
   static Future<Map<String, dynamic>> createOrder(

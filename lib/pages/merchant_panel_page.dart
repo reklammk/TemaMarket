@@ -40,9 +40,8 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
     super.dispose();
   }
 
-  int _asInt(dynamic value) => value is num
-      ? value.toInt()
-      : int.tryParse(value?.toString() ?? '') ?? 0;
+  int _asInt(dynamic value) =>
+      value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? 0;
 
   double _asDouble(dynamic value) => value is num
       ? value.toDouble()
@@ -89,7 +88,8 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
 
   Future<void> _editStock(Map<String, dynamic> product) async {
     final productId = _asInt(product['id']);
-    final controller = TextEditingController(text: '${_asInt(product['stock'])}');
+    final controller =
+        TextEditingController(text: '${_asInt(product['stock'])}');
     final newStock = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
@@ -101,7 +101,9 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
           decoration: const InputDecoration(labelText: 'Yeni stok adedi'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('İptal')),
           FilledButton(
             onPressed: () {
               final value = int.tryParse(controller.text.trim());
@@ -159,7 +161,8 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.delivery_dining),
                   title: Text(item['name']?.toString() ?? 'Kurye'),
-                  subtitle: Text(item['vehicle_type']?.toString() ?? 'Araç belirtilmemiş'),
+                  subtitle: Text(
+                      item['vehicle_type']?.toString() ?? 'Araç belirtilmemiş'),
                 ),
               ),
             )
@@ -191,7 +194,8 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
   Widget build(BuildContext context) {
     if (widget.user?['role']?.toString() != 'Merchant') {
       return const Scaffold(
-        body: Center(child: Text('Bu sayfaya yalnızca bayi hesabı erişebilir.')),
+        body:
+            Center(child: Text('Bu sayfaya yalnızca bayi hesabı erişebilir.')),
       );
     }
 
@@ -203,17 +207,23 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Bayi Paneli', style: TextStyle(fontWeight: FontWeight.w900)),
+            const Text('Bayi Paneli',
+                style: TextStyle(fontWeight: FontWeight.w900)),
             Text(
               widget.user?['company_name']?.toString() ?? 'Atanmış şube',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+              style:
+                  const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
             ),
           ],
         ),
         actions: [
-          IconButton(onPressed: _loading ? null : _loadData, icon: const Icon(Icons.refresh)),
+          IconButton(
+              onPressed: _loading ? null : _loadData,
+              icon: const Icon(Icons.refresh)),
           if (widget.onBackToStore != null)
-            IconButton(onPressed: widget.onBackToStore, icon: const Icon(Icons.storefront_outlined)),
+            IconButton(
+                onPressed: widget.onBackToStore,
+                icon: const Icon(Icons.storefront_outlined)),
         ],
         bottom: TabBar(
           controller: _tabs,
@@ -243,7 +253,8 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
 
   Widget _ordersTab() {
     if (_orders.isEmpty) {
-      return _EmptyState(message: 'Bu şubeye ait sipariş bulunmuyor.', onRetry: _loadData);
+      return _EmptyState(
+          message: 'Bu şubeye ait sipariş bulunmuyor.', onRetry: _loadData);
     }
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -278,9 +289,11 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
               ],
             ),
             Text(order['customer_name']?.toString() ?? '-'),
-            Text(order['delivery_address']?.toString() ?? '-', style: const TextStyle(color: Colors.black54)),
+            Text(order['delivery_address']?.toString() ?? '-',
+                style: const TextStyle(color: Colors.black54)),
             const SizedBox(height: 6),
-            Text('₺${_asDouble(order['total_amount']).toStringAsFixed(2)} • ${order['payment_method'] ?? '-'}'),
+            Text(
+                '₺${_asDouble(order['total_amount']).toStringAsFixed(2)} • ${order['payment_method'] ?? '-'}'),
             if (status == 'Alındı' || status == 'Hazırlanıyor') ...[
               const SizedBox(height: 10),
               Wrap(
@@ -309,7 +322,8 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
   Widget _stockTab() {
     final query = _productQuery.toLowerCase();
     final visible = _products
-        .where((item) => (item['name']?.toString().toLowerCase() ?? '').contains(query))
+        .where((item) =>
+            (item['name']?.toString().toLowerCase() ?? '').contains(query))
         .toList();
     return Column(
       children: [
@@ -337,7 +351,8 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
                       return ListTile(
                         leading: CircleAvatar(child: Text('$stock')),
                         title: Text(product['name']?.toString() ?? 'Ürün'),
-                        subtitle: Text('${product['status'] ?? '-'} • ₺${_asDouble(product['base_price']).toStringAsFixed(2)}'),
+                        subtitle: Text(
+                            '${product['status'] ?? '-'} • ₺${_asDouble(product['base_price']).toStringAsFixed(2)}'),
                         trailing: IconButton(
                           tooltip: 'Stok güncelle',
                           onPressed: () => _editStock(product),
@@ -354,7 +369,8 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
 
   Widget _couriersTab() {
     if (_couriers.isEmpty) {
-      return _EmptyState(message: 'Bu şubeye atanımış aktif kurye yok.', onRetry: _loadData);
+      return _EmptyState(
+          message: 'Bu şubeye atanımış aktif kurye yok.', onRetry: _loadData);
     }
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -367,7 +383,8 @@ class _MerchantPanelPageState extends State<MerchantPanelPage>
           return ListTile(
             leading: const CircleAvatar(child: Icon(Icons.delivery_dining)),
             title: Text(courier['name']?.toString() ?? 'Kurye'),
-            subtitle: Text(courier['vehicle_type']?.toString() ?? 'Araç belirtilmemiş'),
+            subtitle: Text(
+                courier['vehicle_type']?.toString() ?? 'Araç belirtilmemiş'),
             trailing: Text(courier['status']?.toString() ?? '-'),
           );
         },
@@ -389,7 +406,8 @@ class _EmptyState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.info_outline, size: 48, color: Color(0xFF94A3B8)),
+              const Icon(Icons.info_outline,
+                  size: 48, color: Color(0xFF94A3B8)),
               const SizedBox(height: 12),
               Text(message, textAlign: TextAlign.center),
               const SizedBox(height: 12),

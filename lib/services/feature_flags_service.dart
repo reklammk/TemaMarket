@@ -15,16 +15,16 @@ class FeatureFlags {
   final bool serbestKurye;
 
   const FeatureFlags({
-    this.sanalMarket    = true,
-    this.bayiStok       = true,
-    this.temapuan       = true,
+    this.sanalMarket = true,
+    this.bayiStok = true,
+    this.temapuan = true,
     this.apiEntegrasyon = false,
-    this.smsGonderim    = false,
-    this.kampanyalar    = true,
-    this.sanalPos       = false,
-    this.softPos        = false,
-    this.eFatura        = false,
-    this.serbestKurye   = false,
+    this.smsGonderim = false,
+    this.kampanyalar = true,
+    this.sanalPos = false,
+    this.softPos = false,
+    this.eFatura = false,
+    this.serbestKurye = false,
   });
 
   static bool _asBool(dynamic value, bool fallback) {
@@ -63,30 +63,30 @@ class FeatureFlags {
   }
 
   Map<String, dynamic> toJson() => {
-    'sanal_market':    sanalMarket,
-    'bayi_stok':       bayiStok,
-    'temapuan':        temapuan,
-    'api_entegrasyon': apiEntegrasyon,
-    'sms_gonderim':    smsGonderim,
-    'kampanyalar':     kampanyalar,
-    'sanal_pos':       sanalPos,
-    'soft_pos':        softPos,
-    'e_fatura':        eFatura,
-    'serbest_kurye':   serbestKurye,
-  };
+        'sanal_market': sanalMarket,
+        'bayi_stok': bayiStok,
+        'temapuan': temapuan,
+        'api_entegrasyon': apiEntegrasyon,
+        'sms_gonderim': smsGonderim,
+        'kampanyalar': kampanyalar,
+        'sanal_pos': sanalPos,
+        'soft_pos': softPos,
+        'e_fatura': eFatura,
+        'serbest_kurye': serbestKurye,
+      };
 
   /// İki flag set'ini karşılaştır (gereksiz setState'i önler)
   bool isIdenticalTo(FeatureFlags other) =>
-      sanalMarket    == other.sanalMarket    &&
-      bayiStok       == other.bayiStok       &&
-      temapuan       == other.temapuan       &&
+      sanalMarket == other.sanalMarket &&
+      bayiStok == other.bayiStok &&
+      temapuan == other.temapuan &&
       apiEntegrasyon == other.apiEntegrasyon &&
-      smsGonderim    == other.smsGonderim    &&
-      kampanyalar    == other.kampanyalar    &&
-      sanalPos       == other.sanalPos       &&
-      softPos        == other.softPos        &&
-      eFatura        == other.eFatura        &&
-      serbestKurye   == other.serbestKurye;
+      smsGonderim == other.smsGonderim &&
+      kampanyalar == other.kampanyalar &&
+      sanalPos == other.sanalPos &&
+      softPos == other.softPos &&
+      eFatura == other.eFatura &&
+      serbestKurye == other.serbestKurye;
 }
 
 class FeatureFlagsService {

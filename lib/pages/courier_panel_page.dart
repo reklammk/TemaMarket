@@ -59,13 +59,15 @@ class _CourierPanelPageState extends State<CourierPanelPage> {
       await _loadOrders();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sipariş durumu "$status" olarak güncellendi.')),
+          SnackBar(
+              content: Text('Sipariş durumu "$status" olarak güncellendi.')),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString()), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text(error.toString()), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -73,9 +75,8 @@ class _CourierPanelPageState extends State<CourierPanelPage> {
     }
   }
 
-  int _asInt(dynamic value) => value is num
-      ? value.toInt()
-      : int.tryParse(value?.toString() ?? '') ?? 0;
+  int _asInt(dynamic value) =>
+      value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? 0;
 
   double _asDouble(dynamic value) => value is num
       ? value.toDouble()
@@ -86,7 +87,8 @@ class _CourierPanelPageState extends State<CourierPanelPage> {
     final role = widget.user?['role']?.toString();
     if (role != 'Courier') {
       return const Scaffold(
-        body: Center(child: Text('Bu sayfaya yalnızca kurye hesabı erişebilir.')),
+        body:
+            Center(child: Text('Bu sayfaya yalnızca kurye hesabı erişebilir.')),
       );
     }
 
@@ -98,10 +100,12 @@ class _CourierPanelPageState extends State<CourierPanelPage> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Kurye Siparişleri', style: TextStyle(fontWeight: FontWeight.w800)),
+            const Text('Kurye Siparişleri',
+                style: TextStyle(fontWeight: FontWeight.w800)),
             Text(
               widget.user?['name']?.toString() ?? 'Kurye',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+              style:
+                  const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
             ),
           ],
         ),
@@ -174,16 +178,19 @@ class _CourierPanelPageState extends State<CourierPanelPage> {
                 Expanded(
                   child: Text(
                     order['order_number']?.toString() ?? 'Sipariş #$id',
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w900, fontSize: 17),
                   ),
                 ),
                 Chip(label: Text(status)),
               ],
             ),
             const Divider(),
-            _detail(Icons.person_outline, order['customer_name']?.toString() ?? '-'),
+            _detail(Icons.person_outline,
+                order['customer_name']?.toString() ?? '-'),
             _detail(Icons.phone_outlined, order['phone']?.toString() ?? '-'),
-            _detail(Icons.location_on_outlined, order['delivery_address']?.toString() ?? '-'),
+            _detail(Icons.location_on_outlined,
+                order['delivery_address']?.toString() ?? '-'),
             _detail(
               Icons.shopping_bag_outlined,
               items.isEmpty
@@ -213,8 +220,12 @@ class _CourierPanelPageState extends State<CourierPanelPage> {
                           dimension: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Icon(status == 'Kuryede' ? Icons.check_circle_outline : Icons.delivery_dining),
-                  label: Text(status == 'Kuryede' ? 'Teslim edildi olarak işaretle' : 'Teslimata başla'),
+                      : Icon(status == 'Kuryede'
+                          ? Icons.check_circle_outline
+                          : Icons.delivery_dining),
+                  label: Text(status == 'Kuryede'
+                      ? 'Teslim edildi olarak işaretle'
+                      : 'Teslimata başla'),
                 ),
               ),
             ],

@@ -52,7 +52,8 @@ class _AuthPageState extends State<AuthPage> {
 
   Future<void> _openPrivacyPolicy() async {
     final uri = Uri.parse('https://temasanalmarket.com/kvkk');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) {
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+        mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('KVKK sayfası açılamadı.')),
       );
@@ -118,7 +119,8 @@ class _AuthPageState extends State<AuthPage> {
             Future<void> verify() async {
               final code = otpController.text.trim();
               if (code.isEmpty) {
-                setModalState(() => errorText = 'Lütfen doğrulama kodunu girin.');
+                setModalState(
+                    () => errorText = 'Lütfen doğrulama kodunu girin.');
                 return;
               }
               setModalState(() {
@@ -147,19 +149,19 @@ class _AuthPageState extends State<AuthPage> {
               } catch (e) {
                 setModalState(() {
                   verifying = false;
-                  errorText = e.toString().replaceAll('ApiException(200): ', '');
+                  errorText =
+                      e.toString().replaceAll('ApiException(200): ', '');
                 });
               }
             }
 
             return Padding(
-              padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(ctx).viewInsets.bottom),
+              padding:
+                  EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
               child: Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(28)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
                 child: SafeArea(
@@ -310,8 +312,8 @@ class _AuthPageState extends State<AuthPage> {
               offset: const Offset(0, 10),
             ),
           ],
-          border:
-              Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.5),
+          border: Border.all(
+              color: Colors.white.withValues(alpha: 0.2), width: 1.5),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -384,8 +386,8 @@ class _AuthPageState extends State<AuthPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 7),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Color(0xFFFF2A55), Color(0xFFDC2626)],
@@ -393,7 +395,8 @@ class _AuthPageState extends State<AuthPage> {
                       borderRadius: BorderRadius.circular(100),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFDC2626).withValues(alpha: 0.45),
+                          color:
+                              const Color(0xFFDC2626).withValues(alpha: 0.45),
                           blurRadius: 14,
                           spreadRadius: 1,
                           offset: const Offset(0, 4),

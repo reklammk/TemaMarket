@@ -46,9 +46,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
       .map((item) => Map<String, dynamic>.from(item))
       .toList();
 
-  int _asInt(dynamic value) => value is num
-      ? value.toInt()
-      : int.tryParse(value?.toString() ?? '') ?? 0;
+  int _asInt(dynamic value) =>
+      value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? 0;
 
   double _asDouble(dynamic value) => value is num
       ? value.toDouble()
@@ -115,7 +114,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
   Widget build(BuildContext context) {
     if (widget.user?['role']?.toString() != 'SuperAdmin') {
       return const Scaffold(
-        body: Center(child: Text('Bu sayfaya yalnızca yönetici hesabı erişebilir.')),
+        body: Center(
+            child: Text('Bu sayfaya yalnızca yönetici hesabı erişebilir.')),
       );
     }
 
@@ -124,7 +124,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F172A),
         foregroundColor: Colors.white,
-        title: const Text('TEMASAN Yönetim', style: TextStyle(fontWeight: FontWeight.w900)),
+        title: const Text('TEMASAN Yönetim',
+            style: TextStyle(fontWeight: FontWeight.w900)),
         actions: [
           IconButton(
             tooltip: 'Verileri yenile',
@@ -180,9 +181,17 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
   Widget _overview() {
     final cards = [
       ('Kullanıcılar', _metrics['total_users'], Icons.people_outline),
-      ('Bekleyen Başvurular', _metrics['pending_applications'], Icons.pending_actions_outlined),
+      (
+        'Bekleyen Başvurular',
+        _metrics['pending_applications'],
+        Icons.pending_actions_outlined
+      ),
       ('Siparişler', _metrics['total_orders'], Icons.receipt_long_outlined),
-      ('Aktif Kuryeler', _metrics['active_couriers'], Icons.delivery_dining_outlined),
+      (
+        'Aktif Kuryeler',
+        _metrics['active_couriers'],
+        Icons.delivery_dining_outlined
+      ),
     ];
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -202,16 +211,21 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                         padding: const EdgeInsets.all(18),
                         child: Row(
                           children: [
-                            Icon(card.$3, size: 34, color: const Color(0xFFDC2626)),
+                            Icon(card.$3,
+                                size: 34, color: const Color(0xFFDC2626)),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(card.$1, style: const TextStyle(color: Colors.black54)),
+                                  Text(card.$1,
+                                      style: const TextStyle(
+                                          color: Colors.black54)),
                                   Text(
                                     '${card.$2 ?? 0}',
-                                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                                    style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w900),
                                   ),
                                 ],
                               ),
@@ -231,14 +245,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
               title: const Text('Toplam sipariş tutarı'),
               trailing: Text(
                 '₺${_asDouble(_metrics['total_revenue']).toStringAsFixed(2)}',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
               ),
             ),
           ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: Text('Son yenileme hatası: $_error', style: const TextStyle(color: Colors.red)),
+              child: Text('Son yenileme hatası: $_error',
+                  style: const TextStyle(color: Colors.red)),
             ),
         ],
       ),
@@ -251,7 +267,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
         (branch) => ListTile(
           leading: const CircleAvatar(child: Icon(Icons.store_outlined)),
           title: Text(branch['name']?.toString() ?? 'Şube'),
-          subtitle: Text(branch['address']?.toString() ?? branch['city_district']?.toString() ?? '-'),
+          subtitle: Text(branch['address']?.toString() ??
+              branch['city_district']?.toString() ??
+              '-'),
           trailing: Text(branch['code']?.toString() ?? '#${branch['id']}'),
         ),
       );
@@ -261,9 +279,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
         'Sipariş bulunmuyor.',
         (order) => ListTile(
           leading: const CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
-          title: Text(order['order_number']?.toString() ?? 'Sipariş #${order['id']}'),
-          subtitle: Text('${order['customer_name'] ?? '-'} • ${order['status'] ?? '-'}'),
-          trailing: Text('₺${_asDouble(order['total_amount']).toStringAsFixed(2)}'),
+          title: Text(
+              order['order_number']?.toString() ?? 'Sipariş #${order['id']}'),
+          subtitle: Text(
+              '${order['customer_name'] ?? '-'} • ${order['status'] ?? '-'}'),
+          trailing:
+              Text('₺${_asDouble(order['total_amount']).toStringAsFixed(2)}'),
         ),
       );
 
@@ -273,8 +294,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
         (product) => ListTile(
           leading: CircleAvatar(child: Text('${_asInt(product['stock'])}')),
           title: Text(product['name']?.toString() ?? 'Ürün'),
-          subtitle: Text('${product['sub_brand'] ?? '-'} • ${product['status'] ?? '-'}'),
-          trailing: Text('₺${_asDouble(product['base_price']).toStringAsFixed(2)}'),
+          subtitle: Text(
+              '${product['sub_brand'] ?? '-'} • ${product['status'] ?? '-'}'),
+          trailing:
+              Text('₺${_asDouble(product['base_price']).toStringAsFixed(2)}'),
         ),
       );
 
@@ -285,7 +308,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
           leading: const CircleAvatar(child: Icon(Icons.campaign_outlined)),
           title: Text(campaign['title']?.toString() ?? 'Kampanya'),
           subtitle: Text(campaign['description']?.toString() ?? ''),
-          trailing: Text(campaign['is_active'].toString() == '1' ? 'Aktif' : 'Pasif'),
+          trailing:
+              Text(campaign['is_active'].toString() == '1' ? 'Aktif' : 'Pasif'),
         ),
       );
 
@@ -308,13 +332,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
         const Card(
           child: ListTile(
             leading: Icon(Icons.info_outline),
-            title: Text('Entegrasyonu tamamlanmamış özellikler varsayılan olarak kapalıdır.'),
+            title: Text(
+                'Entegrasyonu tamamlanmamış özellikler varsayılan olarak kapalıdır.'),
           ),
         ),
         ...entries.map(
           (entry) => SwitchListTile(
             title: Text(entry.$2),
-            subtitle: Text(_savingFlags.contains(entry.$1) ? 'Kaydediliyor…' : 'Sunucu ayarı'),
+            subtitle: Text(_savingFlags.contains(entry.$1)
+                ? 'Kaydediliyor…'
+                : 'Sunucu ayarı'),
             value: entry.$3,
             onChanged: _savingFlags.contains(entry.$1)
                 ? null
@@ -330,7 +357,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
     String emptyMessage,
     Widget Function(Map<String, dynamic>) builder,
   ) {
-    if (items.isEmpty) return _AdminEmpty(message: emptyMessage, onRetry: _loadData);
+    if (items.isEmpty) {
+      return _AdminEmpty(message: emptyMessage, onRetry: _loadData);
+    }
     return RefreshIndicator(
       onRefresh: _loadData,
       child: ListView.separated(

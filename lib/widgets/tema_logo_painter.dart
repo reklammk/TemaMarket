@@ -58,7 +58,8 @@ class _TemaLogoPainterState extends State<TemaLogoPainter>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _boxScale = CurvedAnimation(parent: _boxController, curve: Curves.easeOutBack);
+    _boxScale =
+        CurvedAnimation(parent: _boxController, curve: Curves.easeOutBack);
     _boxOpacity = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _boxController,
@@ -115,37 +116,22 @@ class _TemaLogoPainterState extends State<TemaLogoPainter>
   }
 
   Future<void> _startSequence() async {
-    await Future.delayed(const Duration(milliseconds: 100));
-    if (!mounted) return;
+    try {
+      await _boxController.forward().orCancel;
+      await _temaController.forward().orCancel;
+      await _marketController.forward().orCancel;
+      await _shineController.forward().orCancel;
 
-    // 1. Kutu büyür
-    await _boxController.forward();
-    if (!mounted) return;
+      if (widget.loop) {
+        _pulseController.repeat(reverse: true);
+      } else {
+        await _pulseController.forward().orCancel;
+      }
 
-    // 2. TEMA yazısı girer
-    await _temaController.forward();
-    if (!mounted) return;
-
-    // 3. Market yazısı girer (50ms gecikmeli)
-    await Future.delayed(const Duration(milliseconds: 50));
-    if (!mounted) return;
-    await _marketController.forward();
-    if (!mounted) return;
-
-    // 4. Shine efekti
-    await Future.delayed(const Duration(milliseconds: 100));
-    if (!mounted) return;
-    await _shineController.forward();
-    if (!mounted) return;
-
-    // 5. Pulse (loop)
-    if (widget.loop) {
-      _pulseController.repeat(reverse: true);
-    } else {
-      await _pulseController.forward();
+      if (mounted) widget.onComplete?.call();
+    } on TickerCanceled {
+      // Widget kapatıldığında animasyon zinciri normal biçimde iptal edilir.
     }
-
-    if (mounted) widget.onComplete?.call();
   }
 
   @override
@@ -229,8 +215,7 @@ class _TemaLogoPainterState extends State<TemaLogoPainter>
 
                           // ── "TEMA" yazısı ──
                           Positioned(
-                            left: w * 0.06 +
-                                _temaSlide.value * w * 0.4,
+                            left: w * 0.06 + _temaSlide.value * w * 0.4,
                             top: h * 0.10,
                             child: Opacity(
                               opacity: _temaOpacity.value.clamp(0.0, 1.0),
@@ -245,7 +230,8 @@ class _TemaLogoPainterState extends State<TemaLogoPainter>
                                   fontFamily: 'Plus Jakarta Sans',
                                   shadows: [
                                     Shadow(
-                                      color: Colors.black.withValues(alpha: 0.25),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.25),
                                       offset: const Offset(1, 1),
                                       blurRadius: 3,
                                     ),
@@ -257,8 +243,7 @@ class _TemaLogoPainterState extends State<TemaLogoPainter>
 
                           // ── "Market" yazısı (küçük, altta) ──
                           Positioned(
-                            left: w * 0.06 +
-                                _marketSlide.value * w * 0.35,
+                            left: w * 0.06 + _marketSlide.value * w * 0.35,
                             bottom: h * 0.12,
                             child: Opacity(
                               opacity: _marketOpacity.value.clamp(0.0, 1.0),
@@ -392,7 +377,8 @@ class _HeaderTemaLogoState extends State<HeaderTemaLogo>
             Transform.scale(
               scale: _pulseScale.value,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
@@ -448,4 +434,3 @@ class _HeaderTemaLogoState extends State<HeaderTemaLogo>
     );
   }
 }
-

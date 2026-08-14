@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,10 +6,7 @@ import '../widgets/tema_logo_painter.dart';
 
 /// TEMA Market Splash Ekranı
 ///
-/// Strateji:
-///   1. Video mevcutsa → video çalar, bitince geçer
-///   2. Video yoksa / hata olursa → sinematik Flutter animasyonu devreye girer
-///      (video ile birebir aynı his: karanlık fon, logo animasyonu, parçacık efektleri)
+/// Tamamen Flutter ile çizilen, dış medya dosyasına ihtiyaç duymayan açılış ekranı.
 class SplashScreenPage extends StatefulWidget {
   final VoidCallback onFinish;
 
@@ -20,9 +18,10 @@ class SplashScreenPage extends StatefulWidget {
 
 class _SplashScreenPageState extends State<SplashScreenPage>
     with TickerProviderStateMixin {
-  // ─── Video ───
   bool _isDisposed = false;
   bool _finishedCalled = false;
+  bool _finishing = false;
+  Timer? _fallbackTimer;
 
   // ─── Arka plan gradient geçişi ───
   late AnimationController _bgController;
@@ -66,8 +65,8 @@ class _SplashScreenPageState extends State<SplashScreenPage>
       }
     });
 
-    // Maksimum 12sn bekle
-    Future.delayed(const Duration(seconds: 12), () {
+    // Animasyon olağan dışı biçimde tamamlanamazsa güvenli çıkış yap.
+    _fallbackTimer = Timer(const Duration(seconds: 12), () {
       if (mounted && !_isDisposed && !_finishedCalled) _finish();
     });
   }
@@ -78,7 +77,8 @@ class _SplashScreenPageState extends State<SplashScreenPage>
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     );
-    _bgProgress = CurvedAnimation(parent: _bgController, curve: Curves.easeInOut);
+    _bgProgress =
+        CurvedAnimation(parent: _bgController, curve: Curves.easeInOut);
 
     // Logo
     _logoController = AnimationController(
@@ -145,44 +145,37 @@ class _SplashScreenPageState extends State<SplashScreenPage>
   }
 
   Future<void> _runAnimationSequence() async {
-    // 1. Arka plan büyür
-    _bgController.forward();
-    await Future.delayed(const Duration(milliseconds: 400));
-    if (!mounted || _isDisposed) return;
-
-    // 2. Parçacıklar uçuşur
-    _particleController.repeat();
-
-    // 3. Logo belirir
-    await _logoController.forward();
-    if (!mounted || _isDisposed) return;
-
-    // 4. Logo animasyonu tamamlandıktan sonra tagline
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (!mounted || _isDisposed) return;
-    _taglineController.forward();
-
-    // 5. Loading bar başlar
-    await Future.delayed(const Duration(milliseconds: 200));
-    if (!mounted || _isDisposed) return;
-    _loadingController.forward();
-
-    // 6. Tüm animasyon ~3sn sürer, sonra geçiş
-    await Future.delayed(const Duration(milliseconds: 2800));
-    if (!mounted || _isDisposed || _finishedCalled) return;
-    _finishWithFade();
+    try {
+      _bgController.forward();
+      _particleController.repeat();
+      await _logoController.forward().orCancel;
+      await _taglineController.forward().orCancel;
+      await _loadingController.forward().orCancel;
+      if (mounted && !_isDisposed && !_finishedCalled) {
+        await _finishWithFade();
+      }
+    } on TickerCanceled {
+      // Widget kapatıldığında animasyon zinciri normal biçimde iptal edilir.
+    }
   }
 
   Future<void> _finishWithFade() async {
-    if (_finishedCalled) return;
+    if (_finishedCalled || _finishing) return;
     if (!mounted) return;
-    await _fadeOutController.forward();
-    _finish();
+    _finishing = true;
+    _fallbackTimer?.cancel();
+    try {
+      await _fadeOutController.forward().orCancel;
+      _finish();
+    } on TickerCanceled {
+      // Widget zaten kapatılmıştır.
+    }
   }
 
   void _finish() {
     if (_finishedCalled) return;
     _finishedCalled = true;
+    _fallbackTimer?.cancel();
 
     try {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -194,6 +187,7 @@ class _SplashScreenPageState extends State<SplashScreenPage>
   @override
   void dispose() {
     _isDisposed = true;
+    _fallbackTimer?.cancel();
     _particleController.stop();
     _bgController.stop();
     _logoController.stop();
@@ -236,10 +230,7 @@ class _SplashScreenPageState extends State<SplashScreenPage>
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  VİDEO OYNATICI
-  // ─────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────
-  //  ANİMASYON SPLASH (video yerine)
+  //  ANİMASYON SPLASH
   // ─────────────────────────────────────────────────────────────
   Widget _buildAnimationSplash(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -290,7 +281,8 @@ class _SplashScreenPageState extends State<SplashScreenPage>
                                   Text(
                                     'Taze • Güvenilir • Hızlı',
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.85),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.85),
                                       fontSize: 15,
                                       fontWeight: FontWeight.w500,
                                       letterSpacing: 1.5,
@@ -301,7 +293,8 @@ class _SplashScreenPageState extends State<SplashScreenPage>
                                   Text(
                                     'Erzurum\'un Market Zinciri',
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.55),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.55),
                                       fontSize: 12,
                                       fontWeight: FontWeight.w400,
                                       letterSpacing: 0.5,
@@ -418,7 +411,8 @@ class _SplashScreenPageState extends State<SplashScreenPage>
                         borderRadius: BorderRadius.circular(2),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFDC2626).withValues(alpha: 0.8),
+                            color:
+                                const Color(0xFFDC2626).withValues(alpha: 0.8),
                             blurRadius: 8,
                           ),
                         ],
@@ -492,9 +486,7 @@ class _ParticlePainter extends CustomPainter {
       final dy = currentY * size.height;
 
       final paint = Paint()
-        ..color = (p.isRed
-                ? const Color(0xFFDC2626)
-                : Colors.white)
+        ..color = (p.isRed ? const Color(0xFFDC2626) : Colors.white)
             .withValues(alpha: (p.opacity * fade).clamp(0.0, 1.0))
         ..style = PaintingStyle.fill;
 

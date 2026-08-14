@@ -50,7 +50,6 @@ class _TemasanAppState extends State<TemasanApp> {
         _currentRoute = 'storefront';
       }
     });
-
   }
 
   Future<void> _handleLogout() async {
@@ -111,22 +110,28 @@ class _TemasanAppState extends State<TemasanApp> {
             foregroundColor: Colors.white,
             elevation: 0,
             shadowColor: Colors.transparent,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-            textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(100)),
+            textStyle: const TextStyle(
+                fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0),
           ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
             foregroundColor: const Color(0xFFDC2626),
             side: const BorderSide(color: Color(0xFFFCA5A5), width: 1.5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-            textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(100)),
+            textStyle:
+                const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
           ),
         ),
         chipTheme: ChipThemeData(
           backgroundColor: const Color(0xFFF1F5F9),
-          labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          labelStyle:
+              const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
           side: BorderSide.none,
         ),
         inputDecorationTheme: InputDecorationTheme(
@@ -144,7 +149,8 @@ class _TemasanAppState extends State<TemasanApp> {
             borderRadius: BorderRadius.circular(100),
             borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         ),
         cardTheme: CardThemeData(
           elevation: 0,
@@ -155,7 +161,8 @@ class _TemasanAppState extends State<TemasanApp> {
             side: const BorderSide(color: Color(0xFFF1F5F9)),
           ),
         ),
-        dividerTheme: const DividerThemeData(color: Color(0xFFF1F5F9), space: 1),
+        dividerTheme:
+            const DividerThemeData(color: Color(0xFFF1F5F9), space: 1),
         bottomSheetTheme: const BottomSheetThemeData(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
