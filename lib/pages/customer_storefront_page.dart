@@ -11,6 +11,7 @@ class CustomerStorefrontPage extends StatefulWidget {
   final VoidCallback? onOpenMerchant;
   final VoidCallback? onOpenCourier;
   final VoidCallback? onLogout;
+  final VoidCallback? onAccountDeleted;
 
   const CustomerStorefrontPage({
     super.key,
@@ -20,6 +21,7 @@ class CustomerStorefrontPage extends StatefulWidget {
     this.onOpenMerchant,
     this.onOpenCourier,
     this.onLogout,
+    this.onAccountDeleted,
   });
 
   @override
@@ -30,6 +32,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   FeatureFlags _flags = const FeatureFlags();
   bool _loading = true;
   bool _savingConsent = false;
+  bool _deletingAccount = false;
   String? _error;
   int _tab = 0;
   int? _branchId;
@@ -862,7 +865,97 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
           leading: const Icon(Icons.logout, color: Colors.red),
           title: const Text('Çıkış yap'),
           onTap: widget.onLogout),
+      if (user['role'] == 'Customer') ...[
+        const Divider(),
+        ListTile(
+          key: const Key('delete-account-tile'),
+          leading: const Icon(Icons.person_remove_outlined, color: Colors.red),
+          title: const Text(
+            'Hesabı sil',
+            style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
+          ),
+          subtitle: const Text('Kişisel bilgileriniz kalıcı olarak silinir.'),
+          onTap: _deletingAccount ? null : _confirmAccountDeletion,
+        ),
+      ],
     ]);
+  }
+
+  Future<void> _confirmAccountDeletion() async {
+    final controller = TextEditingController();
+    var confirmationMatches = false;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          icon: const Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.red,
+            size: 42,
+          ),
+          title: const Text('Hesabınız kalıcı olarak silinsin mi?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Adresleriniz, iletişim izinleriniz ve hesap bilgileriniz '
+                'silinir. Yasal olarak saklanması gereken sipariş kayıtları '
+                'kişisel bilgilerinizden arındırılır. Bu işlem geri alınamaz.',
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Onaylamak için aşağıya SIL yazın.',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                key: const Key('delete-account-confirmation-field'),
+                controller: controller,
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(hintText: 'SIL'),
+                onChanged: (value) => setDialogState(
+                  () =>
+                      confirmationMatches = value.trim().toUpperCase() == 'SIL',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              key: const Key('delete-account-confirm'),
+              onPressed: confirmationMatches
+                  ? () => Navigator.pop(dialogContext, true)
+                  : null,
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Hesabı kalıcı olarak sil'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+
+    if (confirmed != true || !mounted) return;
+    setState(() => _deletingAccount = true);
+    try {
+      await ApiService.deleteAccount();
+      if (!mounted) return;
+      _cart.clear();
+      _message('Hesabınız ve kişisel bilgileriniz silindi.');
+      widget.onAccountDeleted?.call();
+    } catch (error) {
+      if (mounted) _message(error.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _deletingAccount = false);
+    }
   }
 
   Future<void> _saveConsent(bool value) async {

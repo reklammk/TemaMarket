@@ -20,6 +20,11 @@ class AuthPage extends StatefulWidget {
 }
 
 class _AuthPageState extends State<AuthPage> {
+  static const bool _staffLoginEnabled = bool.fromEnvironment(
+    'ENABLE_STAFF_LOGIN',
+    defaultValue: false,
+  );
+
   late String _selectedRole;
   final TextEditingController _phoneController = TextEditingController();
   bool _isLoading = false;
@@ -440,36 +445,40 @@ class _AuthPageState extends State<AuthPage> {
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
                     children: [
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedRole,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Giriş Yapılacak Rol',
-                          border: OutlineInputBorder(),
+                      if (_staffLoginEnabled) ...[
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedRole,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Giriş Yapılacak Rol',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                                value: 'Customer',
+                                child: Text('🛒 Müşteri Hesabı',
+                                    overflow: TextOverflow.ellipsis)),
+                            DropdownMenuItem(
+                                value: 'Merchant',
+                                child: Text('🏢 Bayi / Şube Yöneticisi',
+                                    overflow: TextOverflow.ellipsis)),
+                            DropdownMenuItem(
+                                value: 'Courier',
+                                child: Text('🛵 Kurye Teslimat Personeli',
+                                    overflow: TextOverflow.ellipsis)),
+                            DropdownMenuItem(
+                                value: 'SuperAdmin',
+                                child: Text('👑 Genel Yönetici Konsolu',
+                                    overflow: TextOverflow.ellipsis)),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => _selectedRole = val);
+                            }
+                          },
                         ),
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'Customer',
-                              child: Text('🛒 Müşteri Hesabı',
-                                  overflow: TextOverflow.ellipsis)),
-                          DropdownMenuItem(
-                              value: 'Merchant',
-                              child: Text('🏢 Bayi / Şube Yöneticisi',
-                                  overflow: TextOverflow.ellipsis)),
-                          DropdownMenuItem(
-                              value: 'Courier',
-                              child: Text('🛵 Kurye Teslimat Personeli',
-                                  overflow: TextOverflow.ellipsis)),
-                          DropdownMenuItem(
-                              value: 'SuperAdmin',
-                              child: Text('👑 Genel Yönetici Konsolu',
-                                  overflow: TextOverflow.ellipsis)),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) setState(() => _selectedRole = val);
-                        },
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 16),
+                      ],
                       TextField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,

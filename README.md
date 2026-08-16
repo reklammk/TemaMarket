@@ -20,6 +20,13 @@ flutter test
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
 ```
 
+App Store müşteri derlemesinde personel rolleri giriş ekranında gösterilmez.
+Yalnızca şirket içi dağıtımlarda gerekiyorsa açıkça etkinleştirin:
+
+```sh
+flutter run --dart-define=ENABLE_STAFF_LOGIN=true
+```
+
 Release derlemeleri HTTP API adresini reddeder. Canlı veya TestFlight derlemesi
 HTTPS kullanmalıdır:
 
@@ -52,6 +59,11 @@ TT_SMS_BRAND_CODE=...
 BOOTSTRAP_ADMIN_PHONE=5XXXXXXXXX
 BOOTSTRAP_ADMIN_NAME=...
 SEED_DEMO_DATA=false
+
+# Yalnızca App Store incelemesi sırasında etkinleştirin. Gerçek kullanıcı
+# numarası kullanmayın; kodu App Store Connect inceleme notlarına yazın.
+APP_REVIEW_LOGIN_ENABLED=false
+APP_REVIEW_ACCOUNTS_JSON={"Customer":{"phone":"+905XXXXXXXXX","code":"6_HANELI_KOD"}}
 ```
 
 Geliştirme sırasında SQLite kullanmak için `APP_ENV=development`,
@@ -83,7 +95,12 @@ debug Flutter motoru ve Dart kernel'i açısından doğrulanır.
 ## Güvenlik notları
 
 - OTP kodu sunucu tarafında hash'lenir, süreli ve deneme limitlidir.
+- App Review sabit kodu yalnızca açıkça etkinleştirilen, sunucu ortamında
+  tanımlı özel inceleme hesaplarında çalışır; API kodu hiçbir yanıtta dönmez.
 - Yetki istemcinin seçimine değil sunucudaki kullanıcı rolüne dayanır.
+- Müşteri hesabı uygulama içinden kalıcı olarak silinebilir. Adres, izin ve
+  sadakat verileri kaldırılır; tutulması gereken siparişler anonimleştirilir ve
+  kullanıcının bütün API oturumları iptal edilir.
 - Sipariş fiyatı ve stok kontrolü sunucuda hesaplanır; tekrar gönderimler
   idempotency anahtarıyla engellenir.
 - SoftPOS, sanal POS, e-fatura ve bildirim gibi entegrasyonu tamamlanmamış

@@ -229,6 +229,20 @@ class ApiService {
     }
   }
 
+  static Future<void> deleteAccount() async {
+    if (!isLoggedIn) {
+      throw const ApiException('Hesabı silmek için oturum açmanız gerekiyor.');
+    }
+
+    await _request(
+      'POST',
+      '/user/account/delete',
+      body: const {'confirmation': 'DELETE_ACCOUNT'},
+      timeout: const Duration(seconds: 20),
+    );
+    clearAuth();
+  }
+
   static Future<List<dynamic>> fetchProducts({
     String? category,
     String? search,

@@ -28,6 +28,7 @@ void main() {
 
     final phoneField = tester.widget<TextField>(find.byType(TextField).first);
     expect(phoneField.controller?.text, isEmpty);
+    expect(find.text('Giriş Yapılacak Rol'), findsNothing);
 
     final checkboxes =
         tester.widgetList<Checkbox>(find.byType(Checkbox)).toList();

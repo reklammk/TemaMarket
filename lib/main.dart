@@ -61,6 +61,14 @@ class _TemasanAppState extends State<TemasanApp> {
     });
   }
 
+  void _handleAccountDeleted() {
+    ApiService.clearAuth();
+    setState(() {
+      _currentUser = null;
+      _currentRoute = 'storefront';
+    });
+  }
+
   bool _hasRole(String role) =>
       ApiService.isLoggedIn && _currentUser?['role']?.toString() == role;
 
@@ -215,6 +223,7 @@ class _TemasanAppState extends State<TemasanApp> {
               ? () => setState(() => _currentRoute = 'courier')
               : null,
           onLogout: _handleLogout,
+          onAccountDeleted: _handleAccountDeleted,
         );
     }
   }
