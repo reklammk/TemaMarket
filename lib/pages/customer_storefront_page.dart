@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/feature_flags_service.dart';
 
 class CustomerStorefrontPage extends StatefulWidget {
+  final int initialTab;
   final Map<String, dynamic>? user;
   final VoidCallback? onOpenLogin;
   final VoidCallback? onOpenAdmin;
@@ -15,6 +16,7 @@ class CustomerStorefrontPage extends StatefulWidget {
 
   const CustomerStorefrontPage({
     super.key,
+    this.initialTab = 0,
     this.user,
     this.onOpenLogin,
     this.onOpenAdmin,
@@ -47,6 +49,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   @override
   void initState() {
     super.initState();
+    _tab = widget.initialTab.clamp(0, 4);
     _smsConsent = _bool(widget.user?['sms_consent']);
     _load();
   }

@@ -7,12 +7,14 @@ class AuthPage extends StatefulWidget {
   final String defaultRole;
   final Function(Map<String, dynamic> user)? onLoginSuccess;
   final VoidCallback? onClose;
+  final ValueChanged<int>? onNavigate;
 
   const AuthPage({
     super.key,
     this.defaultRole = 'Customer',
     this.onLoginSuccess,
     this.onClose,
+    this.onNavigate,
   });
 
   @override
@@ -284,7 +286,9 @@ class _AuthPageState extends State<AuthPage> {
 
   void _onNavTap(int index) {
     if (index == 0 || index == 1 || index == 2 || index == 3) {
-      if (widget.onClose != null) {
+      if (widget.onNavigate != null) {
+        widget.onNavigate!(index);
+      } else if (widget.onClose != null) {
         widget.onClose!();
       } else if (Navigator.canPop(context)) {
         Navigator.pop(context);

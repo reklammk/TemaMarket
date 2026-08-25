@@ -35,6 +35,7 @@ class TemasanApp extends StatefulWidget {
 class _TemasanAppState extends State<TemasanApp> {
   Map<String, dynamic>? _currentUser;
   String _currentRoute = 'splash';
+  int _storefrontTab = 0;
 
   void _handleLoginSuccess(Map<String, dynamic> user) {
     setState(() {
@@ -47,6 +48,7 @@ class _TemasanAppState extends State<TemasanApp> {
       } else if (role == 'Courier') {
         _currentRoute = 'courier';
       } else {
+        _storefrontTab = 0;
         _currentRoute = 'storefront';
       }
     });
@@ -65,6 +67,7 @@ class _TemasanAppState extends State<TemasanApp> {
     ApiService.clearAuth();
     setState(() {
       _currentUser = null;
+      _storefrontTab = 0;
       _currentRoute = 'storefront';
     });
   }
@@ -77,13 +80,17 @@ class _TemasanAppState extends State<TemasanApp> {
       defaultRole: role,
       onLoginSuccess: _handleLoginSuccess,
       onClose: () => setState(() => _currentRoute = 'storefront'),
+      onNavigate: (tab) => setState(() {
+        _storefrontTab = tab;
+        _currentRoute = 'storefront';
+      }),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Temasan Sanal Market & ERP',
+      title: 'TEMA Market',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -211,6 +218,7 @@ class _TemasanAppState extends State<TemasanApp> {
       case 'storefront':
       default:
         return CustomerStorefrontPage(
+          initialTab: _storefrontTab,
           user: _currentUser,
           onOpenLogin: () => setState(() => _currentRoute = 'auth'),
           onOpenAdmin: _hasRole('SuperAdmin')
