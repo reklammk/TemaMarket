@@ -7,6 +7,13 @@ workflows:
     name: TEMA Market iOS App Store Build (.ipa)
     max_build_duration: 60
     instance_type: mac_mini_m1
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
     integrations:
       app_store_connect: "Maia Suites Resepsiyon"
     environment:
