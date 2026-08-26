@@ -266,12 +266,21 @@ class ApiService {
       _dataList(await _request('GET', '/branches'));
 
   static Future<Map<String, dynamic>> updateProfilePreferences({
-    required bool smsConsent,
+    bool? smsConsent,
+    List<String>? discountPreferences,
   }) async {
+    if (smsConsent == null && discountPreferences == null) {
+      throw const ApiException('Kaydedilecek bir profil tercihi bulunamadı.');
+    }
+    final body = <String, dynamic>{
+      if (smsConsent != null) 'sms_consent': smsConsent,
+      if (discountPreferences != null)
+        'discount_preferences': discountPreferences,
+    };
     final response = await _request(
       'POST',
       '/user/profile/update',
-      body: {'sms_consent': smsConsent},
+      body: body,
     );
     final userRaw = response['user'];
     if (userRaw is! Map) {

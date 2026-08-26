@@ -3,8 +3,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tema_market/pages/auth_page.dart';
 import 'package:tema_market/pages/splash_screen_page.dart';
 import 'package:tema_market/services/feature_flags_service.dart';
+import 'package:tema_market/utils/customer_profile_utils.dart';
 
 void main() {
+  test('TEMA Kart barkodu telefon numarasının rakamlarını kullanır', () {
+    expect(customerPhoneBarcodeValue('+90 (555) 123 45 67'), '905551234567');
+    expect(customerPhoneBarcodeValue(null), isEmpty);
+  });
+
+  test('indirim tercihleri temizlenir, tekilleştirilir ve sınırlandırılır', () {
+    expect(
+      parseDiscountPreferences([' Kasap ', 'Manav', 'Kasap', '', 42]),
+      {'Kasap', 'Manav'},
+    );
+    expect(parseDiscountPreferences('Kasap'), isEmpty);
+  });
+
   test('feature flag values safely parse booleans, numbers and strings', () {
     final flags = FeatureFlags.fromJson({
       'sanal_market': 'false',

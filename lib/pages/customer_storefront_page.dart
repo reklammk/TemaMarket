@@ -1,8 +1,10 @@
+import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/api_service.dart';
 import '../services/feature_flags_service.dart';
+import '../utils/customer_profile_utils.dart';
 
 class CustomerStorefrontPage extends StatefulWidget {
   final int initialTab;
@@ -34,6 +36,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   FeatureFlags _flags = const FeatureFlags();
   bool _loading = true;
   bool _savingConsent = false;
+  bool _savingDiscountPreferences = false;
   bool _deletingAccount = false;
   String? _error;
   int _tab = 0;
@@ -41,6 +44,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   String _category = 'Tümü';
   String _search = '';
   bool _smsConsent = false;
+  Set<String> _discountPreferences = <String>{};
   List<Map<String, dynamic>> _branches = [];
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _campaigns = [];
@@ -51,6 +55,8 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     super.initState();
     _tab = widget.initialTab.clamp(0, 4);
     _smsConsent = _bool(widget.user?['sms_consent']);
+    _discountPreferences =
+        parseDiscountPreferences(widget.user?['discount_preferences']);
     _load();
   }
 
@@ -59,6 +65,8 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.user?['id'] != widget.user?['id']) {
       _smsConsent = _bool(widget.user?['sms_consent']);
+      _discountPreferences =
+          parseDiscountPreferences(widget.user?['discount_preferences']);
       if (widget.user == null) _cart.clear();
     }
   }
@@ -144,6 +152,33 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     }).toList();
   }
 
+  List<Map<String, dynamic>> get _discountedProducts {
+    final products = _products
+        .where((product) =>
+            _double(product['original_price']) > _double(product['base_price']))
+        .toList();
+    products.sort((a, b) {
+      final aPreferred =
+          _discountPreferences.contains(a['sub_brand']?.toString() ?? 'Genel');
+      final bPreferred =
+          _discountPreferences.contains(b['sub_brand']?.toString() ?? 'Genel');
+      if (aPreferred != bPreferred) return aPreferred ? -1 : 1;
+      final aDiscount = _double(a['original_price']) - _double(a['base_price']);
+      final bDiscount = _double(b['original_price']) - _double(b['base_price']);
+      return bDiscount.compareTo(aDiscount);
+    });
+    return products;
+  }
+
+  List<String> get _preferenceCategories {
+    final categories = <String>{
+      ..._discountPreferences,
+      ..._categories.where((category) => category != 'Tümü'),
+    }.toList()
+      ..sort();
+    return categories.take(12).toList();
+  }
+
   int _quantity(int id) {
     final item = _cart.where((line) => _int(line['id']) == id);
     return item.isEmpty ? 0 : _int(item.first['quantity']);
@@ -189,6 +224,57 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(text), backgroundColor: error ? Colors.red : null),
     );
+  }
+
+  Future<void> _callBranch(String phone) async {
+    final normalized = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (normalized.isEmpty) return;
+    try {
+      final opened = await launchUrl(
+        Uri(scheme: 'tel', path: normalized),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened && mounted) {
+        _message('Telefon uygulaması açılamadı.', error: true);
+      }
+    } catch (_) {
+      if (mounted) _message('Telefon uygulaması açılamadı.', error: true);
+    }
+  }
+
+  Future<void> _openBranchLocation(Map<String, dynamic> branch) async {
+    final address = branch['address']?.toString().trim() ?? '';
+    final district = branch['city_district']?.toString().trim() ?? '';
+    final name = branch['name']?.toString().trim() ?? 'TEMA Market';
+    final query = [name, address, district]
+        .where((part) => part.isNotEmpty)
+        .toSet()
+        .join(', ');
+    if (query.isEmpty) return;
+    final uri = Uri.https(
+      'www.google.com',
+      '/maps/search/',
+      {'api': '1', 'query': query},
+    );
+    try {
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) {
+        _message('Harita uygulaması açılamadı.', error: true);
+      }
+    } catch (_) {
+      if (mounted) _message('Harita uygulaması açılamadı.', error: true);
+    }
+  }
+
+  Future<void> _selectBranch(int id) async {
+    if (id <= 0) return;
+    setState(() {
+      _branchId = id;
+      _cart.clear();
+      _category = 'Tümü';
+      _tab = 0;
+    });
+    await _loadProducts();
   }
 
   @override
@@ -346,36 +432,92 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
           final branch = _branches[index - 1];
           final id = _int(branch['id']);
           final selected = id == _branchId;
+          final address = branch['address']?.toString().trim() ?? '';
+          final district = branch['city_district']?.toString().trim() ?? '';
+          final phone = branch['phone']?.toString().trim() ?? '';
           return Card(
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: selected
-                    ? const Color(0xFFDC2626)
-                    : const Color(0xFFF1F5F9),
-                foregroundColor: selected ? Colors.white : Colors.black54,
-                child: const Icon(Icons.store_rounded),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: selected
+                            ? const Color(0xFFDC2626)
+                            : const Color(0xFFF1F5F9),
+                        foregroundColor:
+                            selected ? Colors.white : Colors.black54,
+                        child: const Icon(Icons.store_rounded),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          branch['name']?.toString() ?? 'TEMA Market Şubesi',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      if (selected)
+                        const Icon(
+                          Icons.check_circle,
+                          color: Color(0xFFDC2626),
+                        ),
+                    ],
+                  ),
+                  if (district.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _branchDetail(Icons.location_city_outlined, district),
+                  ],
+                  if (address.isNotEmpty && address != district) ...[
+                    const SizedBox(height: 8),
+                    _branchDetail(Icons.location_on_outlined, address),
+                  ],
+                  if (phone.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _branchDetail(Icons.phone_outlined, phone),
+                  ],
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: address.isEmpty && district.isEmpty
+                              ? null
+                              : () => _openBranchLocation(branch),
+                          icon: const Icon(Icons.directions_outlined),
+                          label: const Text('Yol Tarifi'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed:
+                              phone.isEmpty ? null : () => _callBranch(phone),
+                          icon: const Icon(Icons.call_outlined),
+                          label: const Text('Ara'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: selected ? null : () => _selectBranch(id),
+                      icon: Icon(selected
+                          ? Icons.check_rounded
+                          : Icons.shopping_basket_outlined),
+                      label: Text(
+                        selected ? 'Seçili Şube' : 'Bu Şubeden Alışveriş Yap',
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              title: Text(
-                branch['name']?.toString() ?? 'TEMA Market Şubesi',
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              subtitle: Text(
-                branch['address']?.toString() ??
-                    branch['district']?.toString() ??
-                    'Ürünleri görüntülemek için seçin.',
-              ),
-              trailing: selected
-                  ? const Icon(Icons.check_circle, color: Color(0xFFDC2626))
-                  : const Icon(Icons.chevron_right),
-              onTap: () async {
-                setState(() {
-                  _branchId = id;
-                  _cart.clear();
-                  _category = 'Tümü';
-                  _tab = 0;
-                });
-                await _loadProducts();
-              },
             ),
           );
         },
@@ -383,11 +525,17 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     );
   }
 
+  Widget _branchDetail(IconData icon, String text) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: Colors.black54),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text)),
+        ],
+      );
+
   Widget _forYouPage() {
-    final discounted = _products
-        .where((product) =>
-            _double(product['original_price']) > _double(product['base_price']))
-        .toList();
+    final discounted = _discountedProducts;
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -399,6 +547,15 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 12),
+          if (_discountPreferences.isNotEmpty) ...[
+            _InfoBanner(
+              icon: Icons.tune_rounded,
+              text:
+                  'Tercihlerinize göre önce ${_discountPreferences.join(', ')} '
+                  'kategorilerindeki fırsatlar gösteriliyor.',
+            ),
+            const SizedBox(height: 12),
+          ],
           if (!_flags.kampanyalar)
             const _InfoBanner(
               icon: Icons.campaign_outlined,
@@ -534,6 +691,36 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                         ]),
                   );
                 },
+              ),
+            ),
+          ],
+          if (_discountedProducts.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'İndirimli Ürünler',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => setState(() => _tab = 3),
+                  child: const Text('Tümünü Gör'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 315,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _discountedProducts.take(8).length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (_, index) => SizedBox(
+                  width: 205,
+                  child: _product(_discountedProducts[index]),
+                ),
               ),
             ),
           ],
@@ -833,7 +1020,12 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         subtitle: Text('${user['phone'] ?? ''}\n${user['role'] ?? ''}'),
         isThreeLine: true,
       )),
-      if (user['role'] == 'Customer')
+      if (user['role'] == 'Customer') ...[
+        const SizedBox(height: 8),
+        _temaCard(user),
+        const SizedBox(height: 12),
+        _discountPreferencesCard(),
+        const SizedBox(height: 8),
         SwitchListTile(
           title: const Text('Kampanya SMS izni'),
           subtitle: const Text(
@@ -841,6 +1033,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
           value: _smsConsent,
           onChanged: _savingConsent ? null : _saveConsent,
         ),
+      ],
       ListTile(
         leading: const Icon(Icons.privacy_tip_outlined),
         title: const Text('KVKK ve gizlilik metni'),
@@ -882,6 +1075,168 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         ),
       ],
     ]);
+  }
+
+  Widget _temaCard(Map<String, dynamic> user) {
+    final phone = user['phone']?.toString() ?? '';
+    final barcodeValue = customerPhoneBarcodeValue(phone);
+    return Semantics(
+      container: true,
+      label: 'TEMA Kart, müşteri telefonu $phone',
+      child: Container(
+        key: const Key('tema-card'),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFEF252B), Color(0xFFB91C1C)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33DC2626),
+              blurRadius: 20,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.credit_card_rounded, color: Colors.white),
+                SizedBox(width: 8),
+                Text(
+                  'TEMA Kart',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Kasada bu barkodu okutabilirsiniz.',
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: barcodeValue.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Text(
+                        'Barkod için telefon numarası bulunamadı.',
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        BarcodeWidget(
+                          barcode: Barcode.code128(),
+                          data: barcodeValue,
+                          height: 72,
+                          drawText: false,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          phone,
+                          style: const TextStyle(
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _discountPreferencesCard() {
+    return Card(
+      key: const Key('discount-preferences-card'),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.auto_awesome_rounded, color: Color(0xFFDC2626)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Kişiselleştirilmiş İndirim Tercihleri',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'İlgilendiğiniz kategorileri seçin; fırsatlar size göre sıralansın.',
+            ),
+            const SizedBox(height: 12),
+            if (_preferenceCategories.isEmpty)
+              const Text('Tercih seçenekleri ürünlerle birlikte yüklenecek.')
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _preferenceCategories.map((category) {
+                  final selected = _discountPreferences.contains(category);
+                  return FilterChip(
+                    label: Text(category),
+                    selected: selected,
+                    onSelected: _savingDiscountPreferences
+                        ? null
+                        : (value) => setState(() {
+                              if (value) {
+                                _discountPreferences.add(category);
+                              } else {
+                                _discountPreferences.remove(category);
+                              }
+                            }),
+                  );
+                }).toList(),
+              ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed:
+                    _savingDiscountPreferences || _preferenceCategories.isEmpty
+                        ? null
+                        : _saveDiscountPreferences,
+                icon: _savingDiscountPreferences
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined),
+                label: const Text('Tercihleri Kaydet'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _confirmAccountDeletion() async {
@@ -958,6 +1313,25 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
       if (mounted) _message(error.toString(), error: true);
     } finally {
       if (mounted) setState(() => _deletingAccount = false);
+    }
+  }
+
+  Future<void> _saveDiscountPreferences() async {
+    setState(() => _savingDiscountPreferences = true);
+    try {
+      final user = await ApiService.updateProfilePreferences(
+        discountPreferences: _discountPreferences.toList()..sort(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _discountPreferences =
+            parseDiscountPreferences(user['discount_preferences']);
+      });
+      _message('İndirim tercihleriniz kaydedildi.');
+    } catch (error) {
+      if (mounted) _message(error.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _savingDiscountPreferences = false);
     }
   }
 

@@ -10,6 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  barcode_widget: ^2.0.4
   http: ^1.2.0
   shared_preferences: ^2.2.2
   url_launcher: ^6.2.4
