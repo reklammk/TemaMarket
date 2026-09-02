@@ -83,6 +83,33 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   List<Map<String, dynamic>> _maps(List<dynamic> list) =>
       list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
 
+  List<Map<String, dynamic>> _customerAddresses = [];
+  List<Map<String, dynamic>> _customerOrders = [];
+  Map<String, dynamic>? _loyaltyData;
+  bool _loadingAccountData = false;
+
+  Future<void> _loadAccountData() async {
+    final user = widget.user;
+    if (user == null || user['role'] != 'Customer') return;
+    setState(() => _loadingAccountData = true);
+    try {
+      final results = await Future.wait([
+        ApiService.fetchCustomerAddresses(),
+        ApiService.fetchCustomerOrders(),
+        ApiService.fetchLoyaltyPoints(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _customerAddresses = _maps(results[0] as List<dynamic>);
+        _customerOrders = _maps(results[1] as List<dynamic>);
+        _loyaltyData = results[2] as Map<String, dynamic>;
+      });
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _loadingAccountData = false);
+    }
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -334,6 +361,9 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
       return;
     }
     setState(() => _tab = index);
+    if (index == 4) {
+      _loadAccountData();
+    }
   }
 
   Widget _floatingNavbar() {
@@ -1014,13 +1044,57 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     }
     return ListView(padding: const EdgeInsets.all(16), children: [
       Card(
-          child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.person)),
-        title: Text(user['name']?.toString() ?? 'TEMA Kullanıcısı'),
-        subtitle: Text('${user['phone'] ?? ''}\n${user['role'] ?? ''}'),
-        isThreeLine: true,
-      )),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 26,
+                    backgroundColor: Color(0xFFFEE2E2),
+                    child: Icon(Icons.person, color: Color(0xFFDC2626), size: 28),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user['name']?.toString() ?? 'TEMA Müşterisi',
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                        ),
+                        Text(
+                          user['phone']?.toString() ?? '',
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        ),
+                        if (user['city_district'] != null && user['city_district'].toString().isNotEmpty)
+                          Text(
+                            user['city_district'].toString(),
+                            style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                          ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, color: Color(0xFFDC2626)),
+                    tooltip: 'Profili Düzenle',
+                    onPressed: _showEditProfileDialog,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
       if (user['role'] == 'Customer') ...[
+        const SizedBox(height: 8),
+        _loyaltySection(),
+        const SizedBox(height: 8),
+        _addressesSection(),
+        const SizedBox(height: 8),
+        _ordersSection(),
         const SizedBox(height: 8),
         _temaCard(user),
         const SizedBox(height: 12),
@@ -1075,6 +1149,270 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         ),
       ],
     ]);
+  }
+
+  void _showEditProfileDialog() {
+    final user = widget.user;
+    final nameCtrl = TextEditingController(text: user?['name']?.toString() ?? '');
+    final emailCtrl = TextEditingController(text: user?['email']?.toString() ?? '');
+    final districtCtrl = TextEditingController(text: user?['city_district']?.toString() ?? '');
+    bool saving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Text('Profili Düzenle', style: TextStyle(fontWeight: FontWeight.w900)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Ad Soyad'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(labelText: 'E-posta'),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: districtCtrl,
+                decoration: const InputDecoration(labelText: 'İlçe / Bölge'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(ctx),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: saving ? null : () async {
+                setDlgState(() => saving = true);
+                try {
+                  await ApiService.updateFullProfile(
+                    name: nameCtrl.text.trim(),
+                    email: emailCtrl.text.trim(),
+                    cityDistrict: districtCtrl.text.trim(),
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (mounted) {
+                    setState(() {});
+                    _message('Profiliniz güncellendi.');
+                  }
+                } catch (e) {
+                  if (mounted) _message(e.toString(), error: true);
+                }
+              },
+              child: saving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Kaydet'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _loyaltySection() {
+    final points = _loyaltyData?['points'] ?? 0;
+    final value = points is num ? points / 10.0 : 0.0;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.stars, color: Color(0xFFDC2626)),
+                const SizedBox(width: 8),
+                const Text('TemaPuan Bakiyeniz', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(
+                    '$points Puan (₺${value.toStringAsFixed(2)})',
+                    style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w900, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Her alışverişinizde TemaPuan kazanın, bir sonraki market siparişinizde anında indirim olarak kullanın.',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _addressesSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.location_on_outlined, color: Color(0xFFDC2626)),
+                const SizedBox(width: 8),
+                const Text('Kayıtlı Adreslerim', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _showAddAddressDialog,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Ekle'),
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                ),
+              ],
+            ),
+            if (_loadingAccountData)
+              const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+            else if (_customerAddresses.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text('Henüz kayıtlı adresiniz bulunmuyor.', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _customerAddresses.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (ctx, i) {
+                  final addr = _customerAddresses[i];
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(addr['title']?.toString() ?? 'Adres', style: const TextStyle(fontWeight: FontWeight.w800)),
+                    subtitle: Text('${addr['address'] ?? ''} (${addr['city_district'] ?? ''})'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.grey),
+                      onPressed: () async {
+                        final id = _int(addr['id']);
+                        if (id > 0) {
+                          await ApiService.deleteCustomerAddress(id);
+                          _loadAccountData();
+                        }
+                      },
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddAddressDialog() {
+    final titleCtrl = TextEditingController();
+    final addrCtrl = TextEditingController();
+    final districtCtrl = TextEditingController(text: 'Erzurum');
+    bool saving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Text('Yeni Adres Ekle', style: TextStyle(fontWeight: FontWeight.w900)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Adres Başlığı (Ev, İş)')),
+              const SizedBox(height: 12),
+              TextField(controller: addrCtrl, decoration: const InputDecoration(labelText: 'Açık Adres'), maxLines: 2),
+              const SizedBox(height: 12),
+              TextField(controller: districtCtrl, decoration: const InputDecoration(labelText: 'İlçe')),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: saving ? null : () => Navigator.pop(ctx), child: const Text('Vazgeç')),
+            FilledButton(
+              onPressed: saving ? null : () async {
+                if (titleCtrl.text.trim().isEmpty || addrCtrl.text.trim().isEmpty) return;
+                setDlgState(() => saving = true);
+                try {
+                  await ApiService.addCustomerAddress(
+                    title: titleCtrl.text.trim(),
+                    address: addrCtrl.text.trim(),
+                    cityDistrict: districtCtrl.text.trim(),
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  _loadAccountData();
+                } catch (e) {
+                  if (mounted) _message(e.toString(), error: true);
+                }
+              },
+              child: saving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Kaydet'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _ordersSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.receipt_long_outlined, color: Color(0xFFDC2626)),
+                SizedBox(width: 8),
+                Text('Geçmiş Siparişlerim', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_loadingAccountData)
+              const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+            else if (_customerOrders.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text('Henüz verilmiş bir siparişiniz yok.', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _customerOrders.length > 5 ? 5 : _customerOrders.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (ctx, i) {
+                  final ord = _customerOrders[i];
+                  final status = ord['status']?.toString() ?? 'Hazırlanıyor';
+                  final total = _double(ord['total_amount']);
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(ord['order_number']?.toString() ?? '#Sipariş', style: const TextStyle(fontWeight: FontWeight.w800)),
+                    subtitle: Text('${ord['created_at'] ?? ''} • ₺${total.toStringAsFixed(2)}'),
+                    trailing: Chip(
+                      label: Text(status, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                      backgroundColor: status == 'Teslim Edildi' ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                      side: BorderSide.none,
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _temaCard(Map<String, dynamic> user) {

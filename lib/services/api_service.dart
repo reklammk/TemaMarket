@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// TEMA Market canlı API istemcisi.
 ///
@@ -18,6 +19,9 @@ class ApiService {
       ? _configuredBaseUrl.substring(0, _configuredBaseUrl.length - 1)
       : _configuredBaseUrl;
 
+  static const String _prefTokenKey = 'tema_auth_token';
+  static const String _prefUserKey = 'tema_auth_user';
+
   static String? _authToken;
   static Map<String, dynamic>? _currentUser;
 
@@ -28,9 +32,63 @@ class ApiService {
   static void setAuthToken(String token) => _authToken = token;
   static void setCurrentUser(Map<String, dynamic> user) => _currentUser = user;
 
-  static void clearAuth() {
+  static Future<void> saveAuthSession(String token, Map<String, dynamic> user) async {
+    _authToken = token;
+    _currentUser = user;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefTokenKey, token);
+      await prefs.setString(_prefUserKey, json.encode(user));
+    } catch (e) {
+      debugPrint('Auth session save error: $e');
+    }
+  }
+
+  static Future<bool> restoreAuthSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(_prefTokenKey);
+      final userStr = prefs.getString(_prefUserKey);
+
+      if (token == null || token.isEmpty) return false;
+      _authToken = token;
+
+      if (userStr != null && userStr.isNotEmpty) {
+        try {
+          _currentUser = json.decode(userStr) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+
+      // Verify token with backend
+      try {
+        final profile = await getProfile();
+        if (profile['success'] == true && profile['data'] != null) {
+          _currentUser = profile['data'] as Map<String, dynamic>;
+          await prefs.setString(_prefUserKey, json.encode(_currentUser));
+          return true;
+        }
+      } catch (e) {
+        debugPrint('Token verification failed: $e');
+        await clearAuth();
+        return false;
+      }
+      return _currentUser != null;
+    } catch (e) {
+      debugPrint('Restore auth session error: $e');
+      return false;
+    }
+  }
+
+  static Future<void> clearAuth() async {
     _authToken = null;
     _currentUser = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefTokenKey);
+      await prefs.remove(_prefUserKey);
+    } catch (e) {
+      debugPrint('Clear auth error: $e');
+    }
   }
 
   static Map<String, String> get _headers => {
@@ -210,8 +268,7 @@ class ApiService {
         403,
       );
     }
-    setAuthToken(token);
-    setCurrentUser(user);
+    await saveAuthSession(token, user);
     return {'user': user, 'token': token};
   }
 
@@ -221,11 +278,12 @@ class ApiService {
         await _request(
           'POST',
           '/auth/logout',
-          timeout: const Duration(seconds: 5),
+          timeout: const Duration(seconds: 4),
         );
       }
+    } catch (_) {
     } finally {
-      clearAuth();
+      await clearAuth();
     }
   }
 
@@ -289,6 +347,67 @@ class ApiService {
     final user = Map<String, dynamic>.from(userRaw);
     setCurrentUser(user);
     return user;
+  }
+
+  static Future<Map<String, dynamic>> getProfile() async {
+    final response = await _request('GET', '/user/profile');
+    return response;
+  }
+
+  static Future<Map<String, dynamic>> updateFullProfile({
+    String? name,
+    String? email,
+    String? cityDistrict,
+    String? birthDate,
+    String? specialDay,
+  }) async {
+    final body = <String, dynamic>{
+      if (name != null) 'name': name,
+      if (email != null) 'email': email,
+      if (cityDistrict != null) 'city_district': cityDistrict,
+      if (birthDate != null) 'birth_date': birthDate,
+      if (specialDay != null) 'special_day': specialDay,
+    };
+    final response = await _request('POST', '/user/profile/update', body: body);
+    final userRaw = response['user'];
+    if (userRaw is Map) {
+      final user = Map<String, dynamic>.from(userRaw);
+      setCurrentUser(user);
+      return user;
+    }
+    return response;
+  }
+
+  static Future<List<dynamic>> fetchCustomerAddresses() async {
+    final response = await _request('GET', '/user/addresses');
+    return _dataList(response);
+  }
+
+  static Future<Map<String, dynamic>> addCustomerAddress({
+    required String title,
+    required String address,
+    required String cityDistrict,
+  }) async {
+    return _dataMap(await _request('POST', '/user/addresses/add', body: {
+      'title': title,
+      'address': address,
+      'city_district': cityDistrict,
+    }));
+  }
+
+  static Future<bool> deleteCustomerAddress(int id) async {
+    final response = await _request('POST', '/user/addresses/delete', body: {'id': id});
+    return response['success'] == true;
+  }
+
+  static Future<List<dynamic>> fetchCustomerOrders() async {
+    final response = await _request('GET', '/user/orders');
+    return _dataList(response);
+  }
+
+  static Future<Map<String, dynamic>> fetchLoyaltyPoints() async {
+    final response = await _request('GET', '/loyalty/points');
+    return _dataMap(response);
   }
 
   static Future<Map<String, dynamic>> lookupCustomerByPhone(

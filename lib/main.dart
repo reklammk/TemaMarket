@@ -37,6 +37,21 @@ class _TemasanAppState extends State<TemasanApp> {
   String _currentRoute = 'splash';
   int _storefrontTab = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    final restored = await ApiService.restoreAuthSession();
+    if (restored && ApiService.currentUser != null && mounted) {
+      setState(() {
+        _currentUser = ApiService.currentUser;
+      });
+    }
+  }
+
   void _handleLoginSuccess(Map<String, dynamic> user) {
     setState(() {
       _currentUser = user;
