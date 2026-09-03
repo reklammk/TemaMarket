@@ -43,7 +43,7 @@ workflows:
           IOS_BUILD_NUMBER=$((30 + ${BUILD_NUMBER:-1}))
           echo "iOS build number: $IOS_BUILD_NUMBER"
           flutter build ipa --release \
-            --build-name=1.0.0 \
+            --build-name=1.0.1 \
             --build-number="$IOS_BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist
       - name: Release IPA Modunu Doğrula
@@ -120,7 +120,7 @@ workflows:
             "$CM_KEY_PASSWORD" > android/key.properties
       - name: Android App Bundle (.aab) Oluştur
         script: |
-          flutter build aab --release --build-name=1.0.0 --build-number=${BUILD_NUMBER:-1}
+          flutter build aab --release --build-name=1.0.1 --build-number=${BUILD_NUMBER:-1}
     artifacts:
       - build/app/outputs/bundle/release/*.aab
     publishing:
