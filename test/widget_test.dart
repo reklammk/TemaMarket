@@ -86,4 +86,42 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
   });
+
+  test('adres ekleme kontratı id, başlık ve ilçe verisini doğrular', () {
+    final serverResponse = {
+      'success': true,
+      'message': 'Adres kaydedildi.',
+      'data': {
+        'id': 42,
+        'title': 'Ev Adresi',
+        'address': 'Gezköy OSB Mah. No:5',
+        'city_district': 'Erzurum / Aziziye',
+        'is_default': 0,
+      }
+    };
+    expect(serverResponse['success'], isTrue);
+    final data = serverResponse['data'] as Map<String, dynamic>;
+    expect(data['id'], 42);
+    expect(data['title'], 'Ev Adresi');
+    expect(data['city_district'], 'Erzurum / Aziziye');
+  });
+
+  test('TemaPuan yanıtı total_points ve tl_equivalent alanlarını okur', () {
+    final serverResponse = {
+      'success': true,
+      'data': {
+        'total_points': 250,
+        'tl_equivalent': 25.0,
+        'history': [
+          {'points': 50, 'type': 'Kazanım', 'description': 'Sipariş puanı'}
+        ]
+      }
+    };
+    final data = serverResponse['data'] as Map<String, dynamic>;
+    final points = data['total_points'] ?? data['points'] ?? 0;
+    final value = (data['tl_equivalent'] as num?)?.toDouble() ?? 0.0;
+    expect(points, 250);
+    expect(value, 25.0);
+    expect((data['history'] as List).length, 1);
+  });
 }

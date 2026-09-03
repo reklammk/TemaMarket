@@ -67,10 +67,17 @@ class ApiService {
           await prefs.setString(_prefUserKey, json.encode(_currentUser));
           return true;
         }
+      } on ApiException catch (e) {
+        if (e.statusCode == 401 || e.statusCode == 403) {
+          debugPrint('Token verification failed (unauthorized): $e');
+          await clearAuth();
+          return false;
+        }
+        debugPrint('Token verification temporary/offline: $e');
+        return _currentUser != null;
       } catch (e) {
-        debugPrint('Token verification failed: $e');
-        await clearAuth();
-        return false;
+        debugPrint('Token verification network error: $e');
+        return _currentUser != null;
       }
       return _currentUser != null;
     } catch (e) {

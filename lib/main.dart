@@ -208,7 +208,20 @@ class _TemasanAppState extends State<TemasanApp> {
     switch (_currentRoute) {
       case 'splash':
         return SplashScreenPage(
-          onFinish: () => setState(() => _currentRoute = 'storefront'),
+          onFinish: () {
+            setState(() {
+              final role = _currentUser?['role'];
+              if (role == 'SuperAdmin') {
+                _currentRoute = 'admin';
+              } else if (role == 'Merchant') {
+                _currentRoute = 'merchant';
+              } else if (role == 'Courier') {
+                _currentRoute = 'courier';
+              } else {
+                _currentRoute = 'storefront';
+              }
+            });
+          },
         );
       case 'auth':
         return _buildAuthPage('Customer');

@@ -71,6 +71,8 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     }
   }
 
+  Map<String, dynamic>? get _currentUser => ApiService.currentUser ?? widget.user;
+
   bool _bool(dynamic value) =>
       value == true ||
       value == 1 ||
@@ -89,25 +91,32 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   bool _loadingAccountData = false;
 
   Future<void> _loadAccountData() async {
-    final user = widget.user;
+    final user = _currentUser;
     if (user == null || user['role'] != 'Customer') return;
     setState(() => _loadingAccountData = true);
+
     try {
-      final results = await Future.wait([
-        ApiService.fetchCustomerAddresses(),
-        ApiService.fetchCustomerOrders(),
-        ApiService.fetchLoyaltyPoints(),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _customerAddresses = _maps(results[0] as List<dynamic>);
-        _customerOrders = _maps(results[1] as List<dynamic>);
-        _loyaltyData = results[2] as Map<String, dynamic>;
-      });
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _loadingAccountData = false);
+      final addrs = await ApiService.fetchCustomerAddresses();
+      if (mounted) setState(() => _customerAddresses = _maps(addrs));
+    } catch (e) {
+      debugPrint('Adresler yüklenirken hata: $e');
     }
+
+    try {
+      final ords = await ApiService.fetchCustomerOrders();
+      if (mounted) setState(() => _customerOrders = _maps(ords));
+    } catch (e) {
+      debugPrint('Siparişler yüklenirken hata: $e');
+    }
+
+    try {
+      final loyalty = await ApiService.fetchLoyaltyPoints();
+      if (mounted) setState(() => _loyaltyData = loyalty);
+    } catch (e) {
+      debugPrint('TemaPuan yüklenirken hata: $e');
+    }
+
+    if (mounted) setState(() => _loadingAccountData = false);
   }
 
   Future<void> _load() async {
@@ -1034,7 +1043,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   }
 
   Widget _account() {
-    final user = widget.user;
+    final user = _currentUser;
     if (user == null) {
       return Center(
           child: FilledButton.icon(
@@ -1152,7 +1161,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   }
 
   void _showEditProfileDialog() {
-    final user = widget.user;
+    final user = _currentUser;
     final nameCtrl = TextEditingController(text: user?['name']?.toString() ?? '');
     final emailCtrl = TextEditingController(text: user?['email']?.toString() ?? '');
     final districtCtrl = TextEditingController(text: user?['city_district']?.toString() ?? '');
@@ -1217,8 +1226,10 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   }
 
   Widget _loyaltySection() {
-    final points = _loyaltyData?['points'] ?? 0;
-    final value = points is num ? points / 10.0 : 0.0;
+    final points = _loyaltyData?['total_points'] ?? _loyaltyData?['points'] ?? 0;
+    final tlEquiv = _loyaltyData?['tl_equivalent'];
+    final value = tlEquiv is num ? tlEquiv.toDouble() : (points is num ? points / 10.0 : 0.0);
+    final history = _loyaltyData?['history'] as List<dynamic>?;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1249,6 +1260,29 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
               'Her alışverişinizde TemaPuan kazanın, bir sonraki market siparişinizde anında indirim olarak kullanın.',
               style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
             ),
+            if (history != null && history.isNotEmpty) ...[
+              const Divider(height: 24),
+              Text('Son Puan Hareketleri', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.grey.shade800)),
+              const SizedBox(height: 8),
+              ...history.take(3).map((h) {
+                final hMap = h is Map ? h : {};
+                final hPoints = hMap['points'] ?? 0;
+                final hType = hMap['type'] ?? 'Kazanım';
+                final hDesc = hMap['description'] ?? '';
+                final isPositive = hType == 'Kazanım';
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(isPositive ? Icons.add_circle : Icons.remove_circle, size: 16, color: isPositive ? Colors.green : Colors.red),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text(hDesc.toString(), style: const TextStyle(fontSize: 12))),
+                      Text('${isPositive ? '+' : '-'}$hPoints Puan', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: isPositive ? Colors.green.shade700 : Colors.red.shade700)),
+                    ],
+                  ),
+                );
+              }),
+            ],
           ],
         ),
       ),
