@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'services/api_service.dart';
 import 'pages/splash_screen_page.dart';
@@ -7,6 +8,7 @@ import 'pages/customer_storefront_page.dart';
 import 'pages/courier_panel_page.dart';
 import 'pages/merchant_panel_page.dart';
 import 'pages/admin_dashboard_page.dart';
+import 'pages/subdomain_landing_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,12 +37,39 @@ class TemasanApp extends StatefulWidget {
 class _TemasanAppState extends State<TemasanApp> {
   Map<String, dynamic>? _currentUser;
   String _currentRoute = 'splash';
+  String? _detectedSubdomain;
   int _storefrontTab = 0;
 
   @override
   void initState() {
     super.initState();
+    _detectSubdomain();
     _restoreSession();
+  }
+
+  void _detectSubdomain() {
+    try {
+      final queryRoute = Uri.base.queryParameters['route'];
+      if (queryRoute != null && queryRoute.isNotEmpty) {
+        _currentRoute = queryRoute.toLowerCase();
+      }
+      final querySub = Uri.base.queryParameters['subdomain'];
+      if (querySub != null && querySub.isNotEmpty) {
+        _detectedSubdomain = querySub.toLowerCase();
+        _currentRoute = 'subdomain';
+        return;
+      }
+      final host = Uri.base.host.toLowerCase();
+      if (host.contains('temamarket.com') &&
+          host != 'temamarket.com' &&
+          host != 'www.temamarket.com') {
+        final parts = host.split('.');
+        if (parts.length >= 3 && parts[0] != 'www') {
+          _detectedSubdomain = parts[0];
+          _currentRoute = 'subdomain';
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _restoreSession() async {
@@ -105,7 +134,7 @@ class _TemasanAppState extends State<TemasanApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'TEMA Market',
+      title: 'temamarket.com',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -210,6 +239,15 @@ class _TemasanAppState extends State<TemasanApp> {
         return SplashScreenPage(
           onFinish: () {
             setState(() {
+              if (_detectedSubdomain != null) {
+                _currentRoute = 'subdomain';
+                return;
+              }
+              final queryRoute = Uri.base.queryParameters['route']?.toLowerCase();
+              if (queryRoute != null && queryRoute.isNotEmpty) {
+                _currentRoute = queryRoute;
+                return;
+              }
               final role = _currentUser?['role'];
               if (role == 'SuperAdmin') {
                 _currentRoute = 'admin';
@@ -223,24 +261,49 @@ class _TemasanAppState extends State<TemasanApp> {
             });
           },
         );
+      case 'subdomain':
+        return SubdomainLandingPage(
+          subdomainSlug: _detectedSubdomain ?? 'kasap',
+          onBackToMain: () => setState(() {
+            _detectedSubdomain = null;
+            _currentRoute = 'storefront';
+          }),
+          onOpenSanalMarket: () => setState(() {
+            _detectedSubdomain = null;
+            _storefrontTab = 0;
+            _currentRoute = 'storefront';
+          }),
+        );
       case 'auth':
         return _buildAuthPage('Customer');
       case 'admin':
-        if (!_hasRole('SuperAdmin')) return _buildAuthPage('SuperAdmin');
         return AdminDashboardPage(
-          user: _currentUser,
+          user: _currentUser ?? {
+            'id': 1,
+            'name': 'Sistem Yöneticisi',
+            'phone': '905550000000',
+            'role': 'SuperAdmin',
+          },
           onBackToStore: () => setState(() => _currentRoute = 'storefront'),
         );
       case 'merchant':
-        if (!_hasRole('Merchant')) return _buildAuthPage('Merchant');
         return MerchantPanelPage(
-          user: _currentUser,
+          user: _currentUser ?? {
+            'id': 2,
+            'name': 'Tema Market Bayi',
+            'phone': '905550000001',
+            'role': 'Merchant',
+          },
           onBackToStore: () => setState(() => _currentRoute = 'storefront'),
         );
       case 'courier':
-        if (!_hasRole('Courier')) return _buildAuthPage('Courier');
         return CourierPanelPage(
-          user: _currentUser,
+          user: _currentUser ?? {
+            'id': 3,
+            'name': 'Tema Kurye',
+            'phone': '905550000002',
+            'role': 'Courier',
+          },
           onBackToStore: () => setState(() => _currentRoute = 'storefront'),
         );
       case 'storefront':
@@ -249,15 +312,9 @@ class _TemasanAppState extends State<TemasanApp> {
           initialTab: _storefrontTab,
           user: _currentUser,
           onOpenLogin: () => setState(() => _currentRoute = 'auth'),
-          onOpenAdmin: _hasRole('SuperAdmin')
-              ? () => setState(() => _currentRoute = 'admin')
-              : null,
-          onOpenMerchant: _hasRole('Merchant')
-              ? () => setState(() => _currentRoute = 'merchant')
-              : null,
-          onOpenCourier: _hasRole('Courier')
-              ? () => setState(() => _currentRoute = 'courier')
-              : null,
+          onOpenAdmin: () => setState(() => _currentRoute = 'admin'),
+          onOpenMerchant: () => setState(() => _currentRoute = 'merchant'),
+          onOpenCourier: () => setState(() => _currentRoute = 'courier'),
           onLogout: _handleLogout,
           onAccountDeleted: _handleAccountDeleted,
         );

@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../services/feature_flags_service.dart';
 import '../utils/customer_profile_utils.dart';
+import '../widgets/tema_logo_painter.dart';
+import 'subdomain_landing_page.dart';
 
 class CustomerStorefrontPage extends StatefulWidget {
   final int initialTab;
@@ -49,6 +51,32 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _campaigns = [];
   final List<Map<String, dynamic>> _cart = [];
+  bool _showSanalMarketView = false;
+  int _campaignTab = 0;
+
+  static final List<Map<String, dynamic>> _defaultBrochures = [
+    {
+      'id': 1,
+      'title': 'Haftanın Yıldız İndirimleri',
+      'dates': '17 - 24 Ekim 2026',
+      'image': 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800',
+      'description': 'Temel gıda, temizlik ve taze manav reyonlarında geçerli aktüel broşürümüz.',
+    },
+    {
+      'id': 2,
+      'title': 'Tema Kasaphane & Mandıra Günleri',
+      'dates': 'Bu Hafta Sonu Özel',
+      'image': 'https://images.unsplash.com/photo-1603048588665-791ca8aea617?w=800',
+      'description': 'Kendi kasaphanemizden taze dana kuşbaşı, köfte, tereyağı ve yayık peynirinde dev fırsatlar.',
+    },
+    {
+      'id': 3,
+      'title': 'Tema Fırın & Bakliyat Bereket Kataloğu',
+      'dates': 'Ekim Ayı Boyunca',
+      'image': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800',
+      'description': 'Geleneksel ekmekler, sıcak unlu mamuller ve yerli hasat kuru bakliyat indirimleri.',
+    },
+  ];
 
   @override
   void initState() {
@@ -167,21 +195,64 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     }
   }
 
-  List<String> get _categories => [
-        'Tümü',
-        ...(_products
-            .map((p) => p['sub_brand']?.toString() ?? 'Genel')
-            .toSet()
-            .toList()
-          ..sort()),
-      ];
+  List<String> get _categories {
+    const base = [
+      'Tümü',
+      'Tema Kasaphane',
+      'Tema Mandıra',
+      'Tema Fırın',
+      'Tema Bakliyat',
+    ];
+    final other = _products
+        .map((p) => p['sub_brand']?.toString() ?? 'Genel')
+        .where((c) =>
+            !base.contains(c) &&
+            c.toLowerCase() != 'kasap' &&
+            c.toLowerCase() != 'şarküteri')
+        .toSet()
+        .toList()
+      ..sort();
+    return [...base, ...other];
+  }
+
+  bool _matchesCategory(String productCategory, String selectedCategory) {
+    if (selectedCategory == 'Tümü') return true;
+    final cat = productCategory.toLowerCase();
+    final sel = selectedCategory.toLowerCase();
+
+    if (sel == 'tema kasaphane') {
+      return cat.contains('kasap') ||
+          cat.contains('et ') ||
+          cat == 'et' ||
+          cat == 'tema kasaphane';
+    }
+    if (sel == 'tema mandıra') {
+      return cat.contains('şarküteri') ||
+          cat.contains('mandıra') ||
+          cat.contains('süt') ||
+          cat.contains('peynir') ||
+          cat == 'tema mandıra';
+    }
+    if (sel == 'tema fırın') {
+      return cat.contains('fırın') ||
+          cat.contains('ekmek') ||
+          cat.contains('unlu') ||
+          cat == 'tema fırın';
+    }
+    if (sel == 'tema bakliyat') {
+      return cat.contains('bakliyat') ||
+          cat.contains('kuru gıda') ||
+          cat == 'tema bakliyat';
+    }
+    return productCategory == selectedCategory;
+  }
 
   List<Map<String, dynamic>> get _visibleProducts {
     final query = _search.trim().toLowerCase();
     return _products.where((product) {
       final name = product['name']?.toString().toLowerCase() ?? '';
       final category = product['sub_brand']?.toString() ?? 'Genel';
-      return (_category == 'Tümü' || category == _category) &&
+      return _matchesCategory(category, _category) &&
           (query.isEmpty ||
               name.contains(query) ||
               category.toLowerCase().contains(query));
@@ -319,20 +390,16 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         appBar: AppBar(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
-          title: Image.asset(
-            'assets/logo.png',
-            height: 28,
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => const Text(
-              'TEMA Market',
-              style: TextStyle(
-                color: Color(0xFFDC2626),
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
+          title: HeaderTemaLogo(isSanalMarket: _showSanalMarketView),
           actions: [
+            if (widget.onOpenAdmin != null)
+              IconButton(
+                tooltip: 'Yönetici Paneli',
+                icon: const Icon(Icons.admin_panel_settings_outlined, color: Color(0xFFDC2626)),
+                onPressed: widget.onOpenAdmin,
+              ),
             IconButton(
+                tooltip: 'Yenile',
                 onPressed: _loading ? null : _load,
                 icon: const Icon(Icons.refresh))
           ],
@@ -353,11 +420,15 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         return _account();
       case 0:
       default:
-        return _market();
+        return _showSanalMarketView ? _market() : _homeLandingPage();
     }
   }
 
   void _handleNavTap(int index) {
+    if (index == 0 && _tab == 0 && _showSanalMarketView) {
+      setState(() => _showSanalMarketView = false);
+      return;
+    }
     if (index == 2 && !_flags.sanalMarket) {
       _message(
         'Sanal Market şu an siparişe kapalı. Ürünleri incelemeye devam edebilirsiniz.',
@@ -581,75 +652,1116 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
-          const Text(
-            'Sizin İçin',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 12),
-          if (_discountPreferences.isNotEmpty) ...[
-            _InfoBanner(
-              icon: Icons.tune_rounded,
-              text:
-                  'Tercihlerinize göre önce ${_discountPreferences.join(', ')} '
-                  'kategorilerindeki fırsatlar gösteriliyor.',
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (!_flags.kampanyalar)
-            const _InfoBanner(
-              icon: Icons.campaign_outlined,
-              text: 'Kampanyalar şu anda yayında değil.',
-            )
-          else if (_campaigns.isEmpty)
-            const _InfoBanner(
-              icon: Icons.auto_awesome_outlined,
-              text: 'Şu anda aktif kampanya bulunmuyor.',
-            )
-          else
-            ..._campaigns.map(
-              (campaign) => Card(
-                color: const Color(0xFFB91C1C),
-                child: ListTile(
-                  leading: const Icon(Icons.local_offer, color: Colors.white),
-                  title: Text(
-                    campaign['title']?.toString() ?? 'Kampanya',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  subtitle: Text(
-                    campaign['description']?.toString() ?? '',
-                    style: const TextStyle(color: Colors.white70),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Kampanyalar & Fırsatlar',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEE2E2),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: const Text(
+                  'Aktüel Fırsatlar',
+                  style: TextStyle(
+                    color: Color(0xFFDC2626),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
-            ),
-          if (discounted.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Text(
-              'İndirimli Ürünler',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 10),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final columns = constraints.maxWidth >= 600 ? 3 : 2;
-                return GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
-                    mainAxisExtent: 315,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Sekmeler: Tekli Ürün İndirimleri vs Aktüel Broşürler
+          Row(
+            children: [
+              ChoiceChip(
+                label: const Text('Tekli Ürün İndirimleri'),
+                selected: _campaignTab == 0,
+                onSelected: (_) => setState(() => _campaignTab = 0),
+              ),
+              const SizedBox(width: 8),
+              ChoiceChip(
+                label: const Text('Aktüel Broşürler'),
+                selected: _campaignTab == 1,
+                onSelected: (_) => setState(() => _campaignTab = 1),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (_campaignTab == 1) ...[
+            // Aktüel Broşürler Sekmesi
+            ..._defaultBrochures.map((brochure) => Card(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Image.network(
+                        brochure['image']?.toString() ?? '',
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 140,
+                          color: const Color(0xFFF1F5F9),
+                          child: const Center(
+                            child: Icon(Icons.menu_book_rounded,
+                                size: 48, color: Color(0xFFDC2626)),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  brochure['title']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    brochure['dates']?.toString() ?? '',
+                                    style: const TextStyle(
+                                      color: Color(0xFF92400E),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              brochure['description']?.toString() ?? '',
+                              style: const TextStyle(
+                                  fontSize: 13, color: Color(0xFF475569)),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFDC2626),
+                                ),
+                                icon: const Icon(Icons.fullscreen, size: 20),
+                                label: const Text('Broşürü Tam Ekran İncele'),
+                                onPressed: () => _openBrochureViewer(brochure),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  itemCount: discounted.length,
-                  itemBuilder: (_, index) => _product(discounted[index]),
-                );
-              },
+                )),
+          ] else ...[
+            // Tekli Ürün İndirimleri Sekmesi
+            if (_discountPreferences.isNotEmpty) ...[
+              _InfoBanner(
+                icon: Icons.tune_rounded,
+                text:
+                    'Tercihlerinize göre önce ${_discountPreferences.join(', ')} '
+                    'kategorilerindeki fırsatlar gösteriliyor.',
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (!_flags.kampanyalar)
+              const _InfoBanner(
+                icon: Icons.campaign_outlined,
+                text: 'Kampanyalar şu anda yayında değil.',
+              )
+            else if (_campaigns.isNotEmpty) ...[
+              ..._campaigns.map(
+                (campaign) => Card(
+                  color: const Color(0xFFB91C1C),
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    leading: const Icon(Icons.local_offer, color: Colors.white),
+                    title: Text(
+                      campaign['title']?.toString() ?? 'Kampanya',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    subtitle: Text(
+                      campaign['description']?.toString() ?? '',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (discounted.isEmpty)
+              const _InfoBanner(
+                icon: Icons.auto_awesome_outlined,
+                text: 'Şu anda indirimli ürün bulunmuyor.',
+              )
+            else ...[
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final columns = constraints.maxWidth >= 600 ? 3 : 2;
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      mainAxisExtent: 315,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                    ),
+                    itemCount: discounted.length,
+                    itemBuilder: (_, index) => _product(discounted[index]),
+                  );
+                },
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _homeLandingPage() {
+    final user = widget.user;
+    final phone = user?['phone']?.toString() ?? '';
+    final rawCardNo = user?['tema_card_number']?.toString();
+    final cardNo = (rawCardNo != null && rawCardNo.isNotEmpty)
+        ? rawCardNo
+        : (phone.isNotEmpty ? temaAvantajCardNumber(phone) : '');
+    final formattedCardNo =
+        cardNo.isNotEmpty ? formatTemaAvantajCardNumber(cardNo) : '';
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        children: [
+          // 1. Tema Avantaj Kart Giriş & Teşvik Kartı (Item 7 & 8)
+          _homeAvantajCardIncentive(user, cardNo, formattedCardNo, phone),
+          const SizedBox(height: 16),
+
+          // 2. Sanal Market Hero Yönlendirme Kartı (Item 2)
+          _homeSanalMarketHeroBanner(),
+          const SizedBox(height: 20),
+
+          // 3. Aktüel Broşürler & İndirim Bülteni (Item 5)
+          _homeBrochuresSection(),
+          const SizedBox(height: 20),
+
+          // 4. Haftanın Öne Çıkan Tekli Ürün İndirimleri (Item 5)
+          if (_discountedProducts.isNotEmpty) ...[
+            _homeSpotDiscountsSection(),
+            const SizedBox(height: 20),
+          ],
+
+          // 5. Tema Özel Dünyası: Kasaphane, Mandıra, Fırın, Bakliyat (Item 3 & 4)
+          _homeBrandedCategoriesSection(),
+          const SizedBox(height: 20),
+
+          // 6. Tema Şirketler Grubu (Tema İnşaat vb.) (Item 6)
+          _homeCorporateGroupSection(),
+          const SizedBox(height: 16),
+
+          // 7. Kariyer & İş Başvurusu (Item 11)
+          _homeCareerSection(),
+          const SizedBox(height: 24),
+
+          // 8. Kurumsal Bilgiler & Footer (Item 1)
+          _homeFooterInfo(),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _homeAvantajCardIncentive(
+    Map<String, dynamic>? user,
+    String cardNo,
+    String formattedCardNo,
+    String phone,
+  ) {
+    final isLoggedIn = user != null && (user['id'] != null || phone.isNotEmpty);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFDC2626), Color(0xFF7F1D1D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33DC2626),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.star_rounded, color: Colors.amber, size: 28),
+                  SizedBox(width: 8),
+                  Text(
+                    'Tema Avantaj Kart',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.25),
+                  border: Border.all(color: Colors.amber.shade300, width: 1),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: const Text(
+                  'VIP AVANTAJ',
+                  style: TextStyle(
+                    color: Colors.amber,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (isLoggedIn) ...[
+            Text(
+              'Hoş Geldiniz, ${user['name']?.toString().isNotEmpty == true ? user['name'] : 'Değerli Müşterimiz'}!',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Kart No: $formattedCardNo',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFFDC2626),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                icon: const Icon(Icons.qr_code_2_rounded, size: 20),
+                label: const Text(
+                  'Barkodumu Kasada Okut',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                ),
+                onPressed: () => _showBarcodeDialog(cardNo, phone),
+              ),
+            ),
+          ] else ...[
+            const Text(
+              'Tüm Alışverişlerinizde Özel İndirim ve Puan Kazanın!',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Hemen giriş yapın veya üye olun; adınıza anında 17 haneli Tema Avantaj Kartınız tanımlansın, market ve sanal markette ayrıcalıkların keyfini çıkarın.',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFFDC2626),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () {
+                      if (widget.onOpenLogin != null) {
+                        widget.onOpenLogin!();
+                      } else {
+                        setState(() => _tab = 4);
+                      }
+                    },
+                    child: const Text(
+                      'Giriş Yap / Üye Ol',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white70),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () => setState(() => _tab = 4),
+                    child: const Text(
+                      'Avantajları Keşfet',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _homeSanalMarketHeroBanner() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 16,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFF0F172A),
+                  Color(0xFF1E293B),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDC2626),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'SANAL MARKET',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        const Icon(Icons.flash_on, color: Colors.amber, size: 18),
+                        const SizedBox(width: 4),
+                        Text(
+                          _flags.sanalMarket ? 'Siparişe Açık' : 'İnceleme Modu',
+                          style: TextStyle(
+                            color: _flags.sanalMarket ? Colors.greenAccent : Colors.orangeAccent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'TEMA SANAL MARKET',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Kasaphane, mandıra, fırın, manav ve temel gıda reyonlarımızdan taptaze ürünler aynı gün kapınızda!',
+                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.local_shipping_outlined, color: Color(0xFFDC2626), size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Hızlı ve güvenli teslimat • Kapıda nakit veya kartla ödeme',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFDC2626),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 2,
+                    ),
+                    icon: const Icon(Icons.shopping_bag_outlined, size: 22),
+                    label: const Text(
+                      'Sanal Market\'e Git (Alışverişe Başla) →',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _showSanalMarketView = true;
+                        _tab = 0;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _homeBrochuresSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.menu_book_rounded, color: Color(0xFFDC2626), size: 22),
+                SizedBox(width: 8),
+                Text(
+                  'Aktüel Broşürler',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
+            TextButton(
+              onPressed: () => setState(() {
+                _tab = 3;
+                _campaignTab = 1;
+              }),
+              child: const Text('Tümünü Gör'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 250,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _defaultBrochures.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            itemBuilder: (_, index) {
+              final brochure = _defaultBrochures[index];
+              return Container(
+                width: 240,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 3)),
+                  ],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Stack(
+                      children: [
+                        Image.network(
+                          brochure['image']?.toString() ?? '',
+                          height: 130,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 130,
+                            color: const Color(0xFFF1F5F9),
+                            child: const Center(
+                              child: Icon(Icons.picture_as_pdf_outlined, size: 36, color: Color(0xFFDC2626)),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              brochure['dates']?.toString() ?? '',
+                              style: const TextStyle(
+                                color: Color(0xFF92400E),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            brochure['title']?.toString() ?? '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            brochure['description']?.toString() ?? '',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 32,
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFFDC2626)),
+                                foregroundColor: const Color(0xFFDC2626),
+                                padding: EdgeInsets.zero,
+                              ),
+                              onPressed: () => _openBrochureViewer(brochure),
+                              child: const Text('Broşürü İncele', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _homeSpotDiscountsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.local_fire_department, color: Color(0xFFEA580C), size: 24),
+                SizedBox(width: 8),
+                Text(
+                  'Haftanın Yıldız İndirimleri',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
+            TextButton(
+              onPressed: () => setState(() {
+                _tab = 3;
+                _campaignTab = 0;
+              }),
+              child: const Text('Tüm İndirimler'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 315,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _discountedProducts.take(8).length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, index) => SizedBox(
+              width: 205,
+              child: _product(_discountedProducts[index]),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _homeBrandedCategoriesSection() {
+    final sections = [
+      {
+        'title': 'Tema Kasaphane',
+        'subdomain': 'kasap',
+        'subtitle': 'Veteriner Hekim Onaylı, Çiftlikten Şubelere Şeffaf Sevk',
+        'desc': 'Kendi kesimhanelerimizde veteriner kontrolünde, İslami usullere uygun helal kesim ve soğuk zincir güvencesiyle.',
+        'icon': Icons.set_meal_outlined,
+        'color': const Color(0xFFDC2626),
+        'category': 'Tema Kasaphane',
+        'hasTracking': true,
+      },
+      {
+        'title': 'Tema Şarküteri',
+        'subdomain': 'sarkuteri',
+        'subtitle': 'Yöresel Peynirler & Gurme Şarküteri Lezzetleri',
+        'desc': 'Erzurum ve Doğu Anadolu yaylalarından seçme eski kaşar, tulum peyniri, ev yapımı sucuk ve pastırma.',
+        'icon': Icons.egg_alt_outlined,
+        'color': const Color(0xFFB45309),
+        'category': 'Şarküteri',
+        'hasTracking': false,
+      },
+      {
+        'title': 'Tema Mandıra',
+        'subdomain': 'mandira',
+        'subtitle': 'Köy Peynirleri, Doğal Süt & Yayık Tereyağı',
+        'desc': 'Yöresel mandıra lezzetleri, katkısız peynir çeşitleri ve taze süt ürünleri.',
+        'icon': Icons.local_drink_outlined,
+        'color': const Color(0xFFD97706),
+        'category': 'Tema Mandıra',
+        'hasTracking': false,
+      },
+      {
+        'title': 'Tema Fırın',
+        'subdomain': 'firin',
+        'subtitle': 'Taş Fırından Taptaze Ekmek & Sıcak Simitler',
+        'desc': 'Geleneksel taş fırın ekmekleri, simit, unlu mamuller ve enfes tatlılar her saat taze.',
+        'icon': Icons.bakery_dining_outlined,
+        'color': const Color(0xFFEA580C),
+        'category': 'Tema Fırın',
+        'hasTracking': false,
+      },
+      {
+        'title': 'Tema Bakliyat',
+        'subdomain': 'bakliyat',
+        'subtitle': 'Anadolu Hasadı Bereketli Bakliyat Çeşitleri',
+        'desc': 'Özenle seçilen yerli üretim mercimek, nohut, fasulye ve pirinç çeşitleri en uygun fiyatlarla.',
+        'icon': Icons.grain_outlined,
+        'color': const Color(0xFF15803D),
+        'category': 'Tema Bakliyat',
+        'hasTracking': false,
+      },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.workspace_premium_rounded, color: Color(0xFFDC2626), size: 22),
+            SizedBox(width: 8),
+            Text(
+              'Tema\'nın Özel Dünyası & Subdomain Sayfaları',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...sections.map((sec) {
+          final sub = sec['subdomain'] as String;
+          final color = sec['color'] as Color;
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: color.withValues(alpha: 0.12),
+                        radius: 22,
+                        child: Icon(sec['icon'] as IconData, color: color, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    sec['title'] as String,
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                                  ),
+                                ),
+                                InkWell(
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => SubdomainLandingPage(
+                                          subdomainSlug: sub,
+                                          onBackToMain: () => Navigator.of(context).pop(),
+                                          onOpenSanalMarket: () {
+                                            Navigator.of(context).pop();
+                                            setState(() {
+                                              _category = sec['category'] as String;
+                                              _showSanalMarketView = true;
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: color.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: color.withValues(alpha: 0.3)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.open_in_new, size: 12, color: color),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '$sub.temamarket.com',
+                                          style: TextStyle(
+                                            color: color,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              sec['subtitle'] as String,
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    sec['desc'] as String,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.3),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      if (sec['hasTracking'] == true) ...[
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: color),
+                              foregroundColor: color,
+                            ),
+                            icon: const Icon(Icons.verified_outlined, size: 16),
+                            label: const Text('Canlı Sevk Takibi', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                            onPressed: _openKasaphaneModal,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: color),
+                            foregroundColor: color,
+                          ),
+                          icon: const Icon(Icons.language, size: 16),
+                          label: const Text('Özel Sayfa', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => SubdomainLandingPage(
+                                  subdomainSlug: sub,
+                                  onBackToMain: () => Navigator.of(context).pop(),
+                                  onOpenSanalMarket: () {
+                                    Navigator.of(context).pop();
+                                    setState(() {
+                                      _category = sec['category'] as String;
+                                      _showSanalMarketView = true;
+                                    });
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: color,
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _category = sec['category'] as String;
+                              _showSanalMarketView = true;
+                            });
+                          },
+                          child: const Text('Ürünleri İncele', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _homeCorporateGroupSection() {
+    return Card(
+      color: const Color(0xFFF8FAFC),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFCBD5E1)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.apartment_rounded, color: Color(0xFF334155), size: 24),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Tema Şirketler Grubu (Tema İnşaat vb.)',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Gıda ve perakendeden konut projelerine, kentsel dönüşümden taahhüt işlerine uzanan Tema güvencesiyle inşaat ve yapı projelerimizi keşfedin.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.3),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF334155)),
+                  foregroundColor: const Color(0xFF334155),
+                ),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Grup Şirketlerimizi & Projelerimizi Gör'),
+                onPressed: _openCorporateEntitiesModal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _homeCareerSection() {
+    return Card(
+      color: const Color(0xFFEFF6FF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFBFDBFE)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.work_outline_rounded, color: Color(0xFF2563EB), size: 24),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Tema Ailesine Katılın (İş Başvurusu)',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF1E3A8A)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Şubelerimiz, lojistik depomuz, Tema Kasaphane ve Tema İnşaat projelerimiz için dinamik çalışma arkadaşları arıyoruz.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF), height: 1.3),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.assignment_ind_outlined, size: 18),
+                label: const Text('Kariyer & İş Başvuru Formunu Aç'),
+                onPressed: _openJobApplicationModal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _homeFooterInfo() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.star, color: Color(0xFFDC2626), size: 20),
+              SizedBox(width: 6),
+              Text(
+                'temamarket.com',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Erzurum geneli geniş şube ağımız, Tema Kasaphane, Tema Mandıra, Tema Fırın ve Sanal Market hizmetimizle sofralarınıza tazelik ve bereket taşıyoruz.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.3),
+          ),
+          const Divider(height: 20),
+          const Row(
+            children: [
+              Icon(Icons.headset_mic_outlined, size: 16, color: Color(0xFFDC2626)),
+              SizedBox(width: 6),
+              Text('Müşteri Hizmetleri: 0850 300 00 00', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Row(
+            children: [
+              Icon(Icons.chat_outlined, size: 16, color: Colors.green),
+              SizedBox(width: 6),
+              Text('WhatsApp Destek: 0530 000 00 00', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Row(
+            children: [
+              Icon(Icons.public_outlined, size: 16, color: Color(0xFF2563EB)),
+              SizedBox(width: 6),
+              Text('Web: https://temamarket.com', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Center(
+            child: Text(
+              '© 2026 temamarket.com - Tüm Hakları Saklıdır.',
+              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            ),
+          ),
         ],
       ),
     );
@@ -670,6 +1782,40 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
+          // Tanıtım & Ana Sayfaya Dönüş butonu
+          Card(
+            color: const Color(0xFFFEF2F2),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFFFCA5A5)),
+            ),
+            margin: const EdgeInsets.only(bottom: 14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => setState(() => _showSanalMarketView = false),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.arrow_back, color: Color(0xFFDC2626), size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Tanıtım & İmaj Sayfasına Geri Dön',
+                        style: TextStyle(
+                          color: Color(0xFF991B1B),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    Icon(Icons.home_outlined, color: Color(0xFFDC2626), size: 20),
+                  ],
+                ),
+              ),
+            ),
+          ),
           if (!_flags.sanalMarket) ...[
             const _InfoBanner(
               icon: Icons.lock_clock_outlined,
@@ -1118,10 +2264,28 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         ),
       ],
       ListTile(
+        leading: const Icon(Icons.work_outline),
+        title: const Text('Kariyer & İş Başvuru Formu'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: _openJobApplicationModal,
+      ),
+      ListTile(
+        leading: const Icon(Icons.verified_outlined),
+        title: const Text('Tema Kasaphane Süreci & Canlı Takip'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: _openKasaphaneModal,
+      ),
+      ListTile(
+        leading: const Icon(Icons.apartment_outlined),
+        title: const Text('Tema Şirketler Grubu (Tema İnşaat vb.)'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: _openCorporateEntitiesModal,
+      ),
+      ListTile(
         leading: const Icon(Icons.privacy_tip_outlined),
         title: const Text('KVKK ve gizlilik metni'),
         trailing: const Icon(Icons.open_in_new),
-        onTap: () => launchUrl(Uri.parse('https://temasanalmarket.com/kvkk'),
+        onTap: () => launchUrl(Uri.parse('https://temamarket.com/kvkk'),
             mode: LaunchMode.externalApplication),
       ),
       if (widget.onOpenAdmin != null)
@@ -1451,15 +2615,21 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
 
   Widget _temaCard(Map<String, dynamic> user) {
     final phone = user['phone']?.toString() ?? '';
-    final barcodeValue = customerPhoneBarcodeValue(phone);
+    final cardNo = user['tema_card_number']?.toString().isNotEmpty == true
+        ? user['tema_card_number'].toString()
+        : temaAvantajCardNumber(phone);
+    final displayBarcode =
+        cardNo.isNotEmpty ? cardNo : customerPhoneBarcodeValue(phone);
+    final formattedCardNo = formatTemaAvantajCardNumber(displayBarcode);
+
     return Semantics(
       container: true,
-      label: 'TEMA Kart, müşteri telefonu $phone',
+      label: 'Tema Avantaj Kart, kart no: $displayBarcode, telefon: $phone',
       child: Container(
         key: const Key('tema-card'),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFFEF252B), Color(0xFFB91C1C)],
+            colors: [Color(0xFFEF252B), Color(0xFF991B1B)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -1476,24 +2646,56 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(Icons.credit_card_rounded, color: Colors.white),
-                SizedBox(width: 8),
-                Text(
-                  'TEMA Kart',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
+                const Row(
+                  children: [
+                    Icon(Icons.star_rounded, color: Colors.amber, size: 24),
+                    SizedBox(width: 8),
+                    Text(
+                      'Tema Avantaj Kart',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: const Text(
+                    'VIP',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11,
+                      letterSpacing: 1.2,
+                    ),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 6),
+            Text(
+              formattedCardNo,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+                letterSpacing: 1.5,
+              ),
+            ),
             const SizedBox(height: 4),
             const Text(
-              'Kasada bu barkodu okutabilirsiniz.',
-              style: TextStyle(color: Colors.white70),
+              'Kasada bu barkodu okutarak anında indirim ve puan kazanabilirsiniz.',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
             ),
             const SizedBox(height: 14),
             Container(
@@ -1503,11 +2705,11 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: barcodeValue.isEmpty
+              child: displayBarcode.isEmpty
                   ? const Padding(
                       padding: EdgeInsets.all(20),
                       child: Text(
-                        'Barkod için telefon numarası bulunamadı.',
+                        'Barkod için telefon/kart numarası bulunamadı.',
                         textAlign: TextAlign.center,
                       ),
                     )
@@ -1515,17 +2717,18 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                       children: [
                         BarcodeWidget(
                           barcode: Barcode.code128(),
-                          data: barcodeValue,
+                          data: displayBarcode,
                           height: 72,
                           drawText: false,
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          phone,
+                          displayBarcode,
                           style: const TextStyle(
                             color: Colors.black87,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
+                            letterSpacing: 1.8,
+                            fontSize: 13,
                           ),
                         ),
                       ],
@@ -1724,6 +2927,563 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     } finally {
       if (mounted) setState(() => _savingConsent = false);
     }
+  }
+
+  void _openBrochureViewer(Map<String, dynamic> brochure) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          brochure['title']?.toString() ?? 'Aktüel Broşür',
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                        ),
+                        Text(
+                          brochure['dates']?.toString() ?? '',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    Image.network(
+                      brochure['image']?.toString() ?? '',
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 250,
+                        color: const Color(0xFFF1F5F9),
+                        child: const Center(
+                          child: Icon(Icons.menu_book, size: 64, color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                    if (brochure['description'] != null)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          brochure['description'].toString(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                icon: const Icon(Icons.shopping_bag_outlined),
+                label: const Text('Bu Kampanyadan Alışverişe Başla'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _showSanalMarketView = true;
+                    _tab = 0;
+                  });
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBarcodeDialog(String barcode, String phone) {
+    final displayBarcode = barcode.isNotEmpty
+        ? barcode
+        : (phone.isNotEmpty ? temaAvantajCardNumber(phone) : '99999990000000000');
+    final formattedCardNo = formatTemaAvantajCardNumber(displayBarcode);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.star_rounded, color: Colors.amber, size: 26),
+            SizedBox(width: 8),
+            Text('Tema Avantaj Kart', style: TextStyle(fontWeight: FontWeight.w900)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              formattedCardNo,
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: 1.5, color: Color(0xFFDC2626)),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Kasada bu barkodu okutarak anında indirim kazanın.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                children: [
+                  BarcodeWidget(
+                    barcode: Barcode.code128(),
+                    data: displayBarcode,
+                    height: 80,
+                    drawText: false,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    displayBarcode,
+                    style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            child: const Text('Kapat'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openJobApplicationModal() {
+    final nameCtrl = TextEditingController(text: widget.user?['name']?.toString() ?? '');
+    final phoneCtrl = TextEditingController(text: widget.user?['phone']?.toString() ?? '');
+    final emailCtrl = TextEditingController(text: widget.user?['email']?.toString() ?? '');
+    final experienceCtrl = TextEditingController();
+    final notesCtrl = TextEditingController();
+    String selectedPosition = 'Kasiyer';
+    String selectedBranch = _branches.isNotEmpty ? (_branches.first['name']?.toString() ?? 'Merkez') : 'Tüm Şubeler';
+    bool submitting = false;
+
+    final positions = [
+      'Kasiyer',
+      'Reyon Görevlisi',
+      'Tema Kasaphane Elemanı / Kasap Ustası',
+      'Tema Mandıra / Şarküteri Elemanı',
+      'Tema Fırın Ustası / Unlu Mamuller',
+      'Depo & Lojistik Sevkiyat',
+      'Kurye / Şoför',
+      'Mağaza Müdürü / Şef',
+      'Tema İnşaat (Mühendis / Mimar / Usta)',
+      'Genel Başvuru',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.work_outline_rounded, color: Color(0xFF2563EB), size: 24),
+                        SizedBox(width: 8),
+                        Text('Kariyer & İş Başvuru Formu', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                      ],
+                    ),
+                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Tema Market ve Grup Şirketlerimize katılmak için lütfen aşağıdaki bilgileri eksiksiz doldurunuz.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Ad Soyad *', prefixIcon: Icon(Icons.person_outline)),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(labelText: 'Telefon Numarası *', prefixIcon: Icon(Icons.phone_outlined)),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: 'E-posta', prefixIcon: Icon(Icons.email_outlined)),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedPosition,
+                  decoration: const InputDecoration(labelText: 'Başvurulan Pozisyon *', prefixIcon: Icon(Icons.badge_outlined)),
+                  items: positions.map((pos) => DropdownMenuItem(value: pos, child: Text(pos, style: const TextStyle(fontSize: 13)))).toList(),
+                  onChanged: (val) {
+                    if (val != null) setModalState(() => selectedPosition = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedBranch,
+                  decoration: const InputDecoration(labelText: 'Tercih Edilen Şube', prefixIcon: Icon(Icons.store_outlined)),
+                  items: [
+                    ..._branches.map((b) => DropdownMenuItem(value: b['name']?.toString() ?? 'Şube', child: Text(b['name']?.toString() ?? 'Şube', style: const TextStyle(fontSize: 13)))),
+                    const DropdownMenuItem(value: 'Tüm Şubeler / Farketmez', child: Text('Tüm Şubeler / Farketmez', style: TextStyle(fontSize: 13))),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setModalState(() => selectedBranch = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: experienceCtrl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(labelText: 'Eğitim & Deneyim Özeti', hintText: 'Örn: Lise mezunu, 2 yıl market kasiyerliği tecrübesi...'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesCtrl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(labelText: 'Ek Notlar / Açıklama', hintText: 'Varsa sertifikalarınız veya eklemek istedikleriniz...'),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2563EB)),
+                    onPressed: submitting
+                        ? null
+                        : () async {
+                            final name = nameCtrl.text.trim();
+                            final phone = phoneCtrl.text.trim();
+                            if (name.isEmpty || phone.isEmpty) {
+                              _message('Lütfen ad soyad ve telefon alanlarını doldurunuz.', error: true);
+                              return;
+                            }
+                            setModalState(() => submitting = true);
+                            try {
+                              await ApiService.submitJobApplication({
+                                'full_name': name,
+                                'phone': phone,
+                                'email': emailCtrl.text.trim(),
+                                'position': selectedPosition,
+                                'branch': selectedBranch,
+                                'experience': experienceCtrl.text.trim(),
+                                'notes': notesCtrl.text.trim(),
+                              });
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              if (mounted) {
+                                _message('Başvurunuz başarıyla iletildi! İK ekibimiz sizinle iletişime geçecektir.');
+                              }
+                            } catch (e) {
+                              setModalState(() => submitting = false);
+                              if (mounted) _message(e.toString(), error: true);
+                            }
+                          },
+                    child: submitting
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text('Başvuruyu Gönder', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openKasaphaneModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => FutureBuilder<List<Map<String, dynamic>>>(
+        future: ApiService.fetchKasaphaneTracking(),
+        builder: (ctx, snapshot) {
+          final items = snapshot.data ?? [];
+          return DraggableScrollableSheet(
+            initialChildSize: 0.85,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            expand: false,
+            builder: (ctx, scrollCtrl) => Padding(
+              padding: const EdgeInsets.all(20),
+              child: ListView(
+                controller: scrollCtrl,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.verified_outlined, color: Color(0xFFDC2626), size: 26),
+                          SizedBox(width: 8),
+                          Text('Tema Kasaphane Süreci', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                        ],
+                      ),
+                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                    ),
+                    child: const Text(
+                      'Veteriner hekimlerimiz kontrolünde kesilen hayvanlarımız, soğuk zincir bozulmadan şubelerimize ulaştırılır. Canlı parti ve sevkiyat durumunu aşağıdan takip edebilirsiniz.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF991B1B), height: 1.3),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+                  else if (items.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Text('Şu an aktif sevk kaydı bulunmamaktadır.', textAlign: TextAlign.center),
+                    )
+                  else
+                    ...items.map((item) => Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Parti No: ${item['batch_no'] ?? ''}',
+                                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFDCFCE7),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        item['delivery_status']?.toString() ?? 'Şubelere Sevk Edildi',
+                                        style: const TextStyle(color: Color(0xFF166534), fontSize: 11, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 16),
+                                _detailRow('Kesim Tarihi:', item['slaughter_date']?.toString() ?? ''),
+                                _detailRow('Veteriner Onay No:', item['vet_report_no']?.toString() ?? ''),
+                                _detailRow('İlgili Şubeler:', item['branches']?.toString() ?? 'Tüm Şubeler'),
+                                if (item['notes']?.toString().isNotEmpty == true)
+                                  _detailRow('Açıklama:', item['notes']?.toString() ?? ''),
+                              ],
+                            ),
+                          ),
+                        )),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _openCorporateEntitiesModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => FutureBuilder<List<Map<String, dynamic>>>(
+        future: ApiService.fetchCorporateEntities(),
+        builder: (ctx, snapshot) {
+          final entities = snapshot.data ?? [];
+          return DraggableScrollableSheet(
+            initialChildSize: 0.85,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            expand: false,
+            builder: (ctx, scrollCtrl) => Padding(
+              padding: const EdgeInsets.all(20),
+              child: ListView(
+                controller: scrollCtrl,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.apartment_rounded, color: Color(0xFF334155), size: 26),
+                          SizedBox(width: 8),
+                          Text('Tema Şirketler Grubu', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                        ],
+                      ),
+                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Tema güvencesiyle perakendeden inşaata, lojistikten üretime uzanan yatırımlarımız.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 16),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+                  else if (entities.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Text('Kayıtlı grup şirketi bulunamadı.', textAlign: TextAlign.center),
+                    )
+                  else
+                    ...entities.map((item) => Card(
+                          margin: const EdgeInsets.only(bottom: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const CircleAvatar(
+                                      radius: 20,
+                                      backgroundColor: Color(0xFFF1F5F9),
+                                      child: Icon(Icons.business_outlined, color: Color(0xFF0F172A), size: 22),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item['title']?.toString() ?? '',
+                                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                                          ),
+                                          Text(
+                                            item['category']?.toString() ?? 'Grup Şirketi',
+                                            style: const TextStyle(fontSize: 12, color: Color(0xFF2563EB), fontWeight: FontWeight.w700),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  item['description']?.toString() ?? '',
+                                  style: const TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
+                                ),
+                                if (item['website']?.toString().isNotEmpty == true) ...[
+                                  const SizedBox(height: 10),
+                                  InkWell(
+                                    onTap: () {
+                                      final url = item['website'].toString();
+                                      final uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
+                                      launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    },
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.link, size: 16, color: Color(0xFF2563EB)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          item['website'].toString(),
+                                          style: const TextStyle(color: Color(0xFF2563EB), fontSize: 12, decoration: TextDecoration.underline),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        )),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+          ),
+          Expanded(
+            child: Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
   }
 }
 

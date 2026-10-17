@@ -1,11 +1,11 @@
 {
-    "name": "TEMA SanalMarket",
-    "short_name": "TEMA Market",
+    "name": "temamarket.com",
+    "short_name": "temamarket.com",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFFFFF",
     "theme_color": "#DC2626",
-    "description": "TEMA Market Sanal Market ve ERP Mobil/Web Platformu.",
+    "description": "temamarket.com - TEMA Market Sanal Market, Tema Kasaphane ve Grup Şirketleri Platformu.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

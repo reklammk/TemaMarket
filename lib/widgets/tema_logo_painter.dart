@@ -213,30 +213,42 @@ class _TemaLogoPainterState extends State<TemaLogoPainter>
                             ),
                           ),
 
-                          // ── "TEMA" yazısı ──
+                          // ── "★ TEMA" yazısı ──
                           Positioned(
-                            left: w * 0.06 + _temaSlide.value * w * 0.4,
+                            left: w * 0.05 + _temaSlide.value * w * 0.4,
                             top: h * 0.10,
                             child: Opacity(
                               opacity: _temaOpacity.value.clamp(0.0, 1.0),
-                              child: Text(
-                                'TEMA',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: h * 0.52,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: w * 0.003,
-                                  height: 1.0,
-                                  fontFamily: 'Plus Jakarta Sans',
-                                  shadows: [
-                                    Shadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.25),
-                                      offset: const Offset(1, 1),
-                                      blurRadius: 3,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.star_rounded,
+                                    color: Colors.white,
+                                    size: h * 0.46,
+                                  ),
+                                  SizedBox(width: w * 0.015),
+                                  Text(
+                                    'TEMA',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: h * 0.50,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: w * 0.003,
+                                      height: 1.0,
+                                      fontFamily: 'Plus Jakarta Sans',
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black
+                                              .withValues(alpha: 0.25),
+                                          offset: const Offset(1, 1),
+                                          blurRadius: 3,
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -364,7 +376,8 @@ class _HeaderTemaLogoState extends State<HeaderTemaLogo>
 
   @override
   Widget build(BuildContext context) {
-    final String labelText = widget.isSanalMarket ? 'sanalmarket' : 'Market';
+    final String labelText =
+        widget.isSanalMarket ? 'sanal market' : 'market.com';
 
     return AnimatedBuilder(
       animation: _pulseScale,
@@ -373,12 +386,12 @@ class _HeaderTemaLogoState extends State<HeaderTemaLogo>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // ── TEMA Kırmızı Rozeti (Ölçek animasyonlu & parlak gölgeli) ──
+            // ── TEMA Kırmızı Rozeti (Yıldızlı, Ölçek animasyonlu & parlak gölgeli) ──
             Transform.scale(
               scale: _pulseScale.value,
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
@@ -399,19 +412,30 @@ class _HeaderTemaLogoState extends State<HeaderTemaLogo>
                     ),
                   ],
                 ),
-                child: const Text(
-                  'TEMA',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
-                    letterSpacing: 1.2,
-                  ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.star_rounded,
+                      color: Colors.white,
+                      size: 15,
+                    ),
+                    SizedBox(width: 3),
+                    Text(
+                      'TEMA',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            // ── sanalmarket / Market Metni ──
+            // ── market.com / sanal market Metni ──
             Text(
               labelText,
               style: TextStyle(
