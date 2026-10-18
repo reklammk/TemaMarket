@@ -599,7 +599,7 @@ fullWidth:!0,label:"Ad Soyad *",value:O,onChange:xe=>H(xe.target.value),required
 item:!0,xs:12,children:n.jsx(Y,{
 fullWidth:!0,label:"Firma / Mağaza Unvanı *",value:W,onChange:xe=>B(xe.target.value),required:!0,size:"small"})}),n.jsx(R,{
 item:!0,xs:12,children:n.jsx(Y,{
-fullWidth:!0,label:"Cep Telefonu (10 Hane) *",placeholder:"5372668092",value:f,onChange:xe=>ge(xe.target.value),required:!0,size:"small",InputProps:{
+fullWidth:!0,label:"Cep Telefonu (10 Hane) *",placeholder:"5372668092",InputLabelProps:{shrink:!0},value:f,onChange:xe=>ge(xe.target.value),required:!0,size:"small",InputProps:{
 startAdornment:n.jsx(Jn,{
 position:"start",children:n.jsx(p,{
 variant:"body2",fontWeight:800,color:"#dc2626",children:"+90"})})}})}),s===1&&n.jsx(R,{
@@ -622,7 +622,7 @@ container:!0,spacing:2,children:[n.jsx(R,{
 item:!0,xs:12,children:n.jsx(Y,{
 fullWidth:!0,label:"Ad Soyad *",placeholder:"Adınız Soyadınız",value:O,onChange:xe=>H(xe.target.value),required:!0,size:"small"})}),n.jsx(R,{
 item:!0,xs:12,children:n.jsx(Y,{
-fullWidth:!0,label:"Cep Telefonu (Başında 0 Olmadan) *",placeholder:"5372668092",value:f,onChange:xe=>ge(xe.target.value),required:!0,size:"small",InputProps:{
+fullWidth:!0,label:"Cep Telefonu (Başında 0 Olmadan) *",placeholder:"5372668092",InputLabelProps:{shrink:!0},value:f,onChange:xe=>ge(xe.target.value),required:!0,size:"small",InputProps:{
 startAdornment:n.jsx(Jn,{
 position:"start",children:n.jsx(p,{
 variant:"body2",fontWeight:800,color:"#dc2626",children:"+90"})})}})}),n.jsx(R,{
