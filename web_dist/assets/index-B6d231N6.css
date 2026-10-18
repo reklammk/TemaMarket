@@ -78,24 +78,92 @@ button, a {
     width: calc(100% - 16px) !important;
     max-width: 440px !important;
     max-height: calc(100% - 16px) !important;
-    padding: 16px 12px !important;
+    padding: 18px 12px !important;
     border-radius: 20px !important;
     overflow-x: hidden !important;
     box-sizing: border-box !important;
+    display: block !important;
+    position: relative !important;
   }
-  
+
+  /* Force vertical block flow for modal content containers */
+  .MuiDialog-paper > .MuiBox-root,
+  .MuiDialog-paper > .MuiBox-root > .MuiBox-root {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Top header inside Dialog - allow room for absolute close button */
+  .MuiDialog-paper > .MuiBox-root > .MuiBox-root > .MuiBox-root:first-child {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-bottom: 14px !important;
+    padding-right: 44px !important;
+    box-sizing: border-box !important;
+  }
+
+  .MuiDialog-paper img[alt*="Tema"] {
+    max-height: 32px !important;
+    width: auto !important;
+  }
+
+  .MuiDialog-paper .MuiChip-root {
+    height: 22px !important;
+    font-size: 0.65rem !important;
+    letter-spacing: 0 !important;
+    padding: 0 4px !important;
+  }
+
+  /* Close button X positioned top-right without overlapping badge */
+  .MuiDialog-paper .MuiIconButton-root {
+    position: absolute !important;
+    top: 14px !important;
+    right: 14px !important;
+    z-index: 10 !important;
+    background: #f1f5f9 !important;
+    padding: 6px !important;
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  /* Card containing the form */
+  .MuiDialog-paper .MuiPaper-root {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    border-radius: 18px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  /* Card inner content padding */
+  .MuiDialog-paper .MuiPaper-root > .MuiBox-root:last-child {
+    padding: 16px 12px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+  }
+
   /* Tabs inside Auth dialog */
   .MuiDialog-paper .MuiTabs-root {
     min-height: 38px !important;
+    width: 100% !important;
   }
   .MuiDialog-paper .MuiTabs-flexContainer {
+    display: flex !important;
     gap: 4px !important;
+    width: 100% !important;
   }
   .MuiDialog-paper .MuiTab-root {
+    flex: 1 1 0 !important;
     min-height: 36px !important;
     min-width: 0 !important;
     padding: 4px 6px !important;
-    font-size: 0.78rem !important;
+    font-size: 0.76rem !important;
     font-weight: 800 !important;
   }
   .MuiDialog-paper .MuiTab-root .MuiTab-iconWrapper {
@@ -103,49 +171,28 @@ button, a {
     margin-bottom: 0 !important;
   }
   .MuiDialog-paper .MuiTab-root svg {
-    font-size: 16px !important;
+    font-size: 15px !important;
   }
 
-  /* Inner card container */
-  .MuiDialog-paper .MuiPaper-root {
-    border-radius: 16px !important;
+  /* Form and inputs fit 100% */
+  .MuiDialog-paper form {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
-  
-  /* Inner padding inside the card */
-  .MuiDialog-paper .MuiPaper-root > .MuiBox-root:last-child {
-    padding: 16px !important;
+  .MuiDialog-paper .MuiTextField-root {
+    width: 100% !important;
   }
-
-  /* Top header: logo & close button */
-  .MuiDialog-paper > .MuiBox-root:first-child > .MuiBox-root:first-child {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    margin-bottom: 12px !important;
-    padding: 0 2px !important;
-    position: relative !important;
-  }
-  .MuiDialog-paper > .MuiBox-root:first-child > .MuiBox-root:first-child img {
-    max-height: 32px !important;
-    width: auto !important;
-  }
-  .MuiDialog-paper > .MuiBox-root:first-child > .MuiBox-root:first-child .MuiChip-root {
-    height: 22px !important;
-    font-size: 0.65rem !important;
-    padding: 0 4px !important;
-    letter-spacing: 0 !important;
-  }
-  .MuiDialog-paper > .MuiBox-root:first-child > .MuiBox-root:first-child .MuiIconButton-root {
-    padding: 6px !important;
-    flex-shrink: 0 !important;
-  }
-
-  /* Input adjustments */
   .MuiDialog-paper .MuiOutlinedInput-root {
+    width: 100% !important;
     font-size: 0.95rem !important;
   }
   .MuiDialog-paper .MuiInputAdornment-root {
     margin-right: 6px !important;
   }
+  .MuiDialog-paper .MuiButton-root {
+    width: 100% !important;
+  }
 }
+
 
