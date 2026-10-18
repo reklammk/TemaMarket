@@ -2079,7 +2079,15 @@ return d?JSON.parse(d):null}
 catch{
 return null}}),detectInitialSubdomain=()=>{
 const params=new URLSearchParams(window.location.search);
-if(params.get("subdomain"))return params.get("subdomain").toLowerCase();
+if(params.get("subdomain")){
+const subSlug=params.get("subdomain").toLowerCase();
+const curHost=window.location.hostname.toLowerCase();
+if((curHost.includes("temasanalmarket.com")||curHost.includes("temamarket.com"))&&!curHost.startsWith(subSlug+".")){
+const baseHost=curHost.split(".").slice(-2).join(".");
+window.location.replace(window.location.protocol+"//"+subSlug+"."+baseHost+"/");
+return subSlug;}
+return subSlug;}
+
 const host=window.location.hostname.toLowerCase();
 const parts=host.split(".");
 if(parts.length>=2&&parts[0]!=="www"&&parts[0]!=="localhost"&&parts[0]!=="127"&&parts[0]!=="temamarket"&&parts[0]!=="temasanalmarket"&&parts[0]!=="admin"){
@@ -2107,9 +2115,9 @@ return"STOREFRONT"}
 t(d),localStorage.setItem("temasan_user",JSON.stringify(d)),d.role==="SuperAdmin"||d.role==="Merchant"?(pushUrl("/admin"),a("ADMIN")):d.role==="Courier"?a("COURIER"):(pushUrl("/"),a("STOREFRONT"))}
 ,l=()=>{
 t(null),localStorage.removeItem("temasan_user"),pushUrl("/"),a("STOREFRONT")}
-,c=()=>{setActiveSubdomain(null);pushUrl("/");a("STOREFRONT");window.dispatchEvent(new Event("temasan_route_updated"));window.scrollTo({top:0,behavior:"smooth"})}
-,openMarketWithCat=cat=>{setActiveSubdomain(null);pushUrl("/?market=1"+(cat?"&cat="+encodeURIComponent(cat):""));a("STOREFRONT");window.dispatchEvent(new Event("temasan_route_updated"));window.scrollTo({top:0,behavior:"smooth"})}
-,openSubdomainPage=slug=>{setActiveSubdomain(slug);pushUrl("/?subdomain="+encodeURIComponent(slug));a("SUBDOMAIN");window.scrollTo({top:0,behavior:"smooth"})}
+,c=()=>{setActiveSubdomain(null);const curH=window.location.hostname.toLowerCase();if((curH.includes("temasanalmarket.com")||curH.includes("temamarket.com"))&&curH.split(".").length>2){const bH=curH.split(".").slice(-2).join(".");window.location.href=window.location.protocol+"//"+bH+"/";return;}pushUrl("/");a("STOREFRONT");window.dispatchEvent(new Event("temasan_route_updated"));window.scrollTo({top:0,behavior:"smooth"})}
+,openMarketWithCat=cat=>{setActiveSubdomain(null);const curH=window.location.hostname.toLowerCase();if((curH.includes("temasanalmarket.com")||curH.includes("temamarket.com"))&&curH.split(".").length>2){const bH=curH.split(".").slice(-2).join(".");window.location.href=window.location.protocol+"//"+bH+"/?market=1"+(cat?"&cat="+encodeURIComponent(cat):"");return;}pushUrl("/?market=1"+(cat?"&cat="+encodeURIComponent(cat):""));a("STOREFRONT");window.dispatchEvent(new Event("temasan_route_updated"));window.scrollTo({top:0,behavior:"smooth"})}
+,openSubdomainPage=slug=>{setActiveSubdomain(slug);const curH=window.location.hostname.toLowerCase();if(curH.includes("temasanalmarket.com")||curH.includes("temamarket.com")){const bH=curH.split(".").slice(-2).join(".");window.location.href=window.location.protocol+"//"+slug+"."+bH+"/";return;}pushUrl("/?subdomain="+encodeURIComponent(slug));a("SUBDOMAIN");window.scrollTo({top:0,behavior:"smooth"})}
 ,openAdminForSubdomain=slug=>{setAdminInitTab(16);setAdminInitSubSlug(slug||"kasap");pushUrl("/admin");a("ADMIN");window.scrollTo({top:0,behavior:"smooth"})}
 ,navTo=(viewName,pathStr)=>{setActiveSubdomain(null);if(pathStr)pushUrl(pathStr);a(viewName);window.scrollTo({top:0,behavior:"smooth"})};
 u.useEffect(()=>{
