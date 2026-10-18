@@ -76,15 +76,76 @@ button, a {
   .MuiDialog-paper {
     margin: 8px !important;
     width: calc(100% - 16px) !important;
-    max-width: 100% !important;
+    max-width: 440px !important;
     max-height: calc(100% - 16px) !important;
+    padding: 16px 12px !important;
+    border-radius: 20px !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
   }
+  
+  /* Tabs inside Auth dialog */
   .MuiDialog-paper .MuiTabs-root {
     min-height: 38px !important;
+  }
+  .MuiDialog-paper .MuiTabs-flexContainer {
+    gap: 4px !important;
   }
   .MuiDialog-paper .MuiTab-root {
     min-height: 36px !important;
     min-width: 0 !important;
-    padding: 4px 8px !important;
+    padding: 4px 6px !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+  }
+  .MuiDialog-paper .MuiTab-root .MuiTab-iconWrapper {
+    margin-right: 4px !important;
+    margin-bottom: 0 !important;
+  }
+  .MuiDialog-paper .MuiTab-root svg {
+    font-size: 16px !important;
+  }
+
+  /* Inner card container */
+  .MuiDialog-paper .MuiPaper-root {
+    border-radius: 16px !important;
+  }
+  
+  /* Inner padding inside the card */
+  .MuiDialog-paper .MuiPaper-root > .MuiBox-root:last-child {
+    padding: 16px !important;
+  }
+
+  /* Top header: logo & close button */
+  .MuiDialog-paper > .MuiBox-root:first-child > .MuiBox-root:first-child {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 12px !important;
+    padding: 0 2px !important;
+    position: relative !important;
+  }
+  .MuiDialog-paper > .MuiBox-root:first-child > .MuiBox-root:first-child img {
+    max-height: 32px !important;
+    width: auto !important;
+  }
+  .MuiDialog-paper > .MuiBox-root:first-child > .MuiBox-root:first-child .MuiChip-root {
+    height: 22px !important;
+    font-size: 0.65rem !important;
+    padding: 0 4px !important;
+    letter-spacing: 0 !important;
+  }
+  .MuiDialog-paper > .MuiBox-root:first-child > .MuiBox-root:first-child .MuiIconButton-root {
+    padding: 6px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Input adjustments */
+  .MuiDialog-paper .MuiOutlinedInput-root {
+    font-size: 0.95rem !important;
+  }
+  .MuiDialog-paper .MuiInputAdornment-root {
+    margin-right: 6px !important;
   }
 }
+
