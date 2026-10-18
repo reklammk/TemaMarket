@@ -1,0 +1,533 @@
+{
+  "products": [
+    {
+      "id": 1,
+      "name": "Dana Kasap Parmak Sucuk 500 g",
+      "category": "Et & Tavuk & Balık",
+      "sub_brand": "Kasap",
+      "barcode": "8690000111101",
+      "base_price": 499,
+      "original_price": 625,
+      "stock": 25,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80",
+      "unit": "Paket"
+    },
+    {
+      "id": 2,
+      "name": "Taze Dana Kıyma (%15 Yağlı) 1 kg",
+      "category": "Et & Tavuk & Balık",
+      "sub_brand": "Kasap",
+      "barcode": "8690000111102",
+      "base_price": 390,
+      "original_price": 440,
+      "stock": 18,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&w=400&q=80",
+      "unit": "kg"
+    },
+    {
+      "id": 3,
+      "name": "Kuzu Pirzola 1 kg",
+      "category": "Et & Tavuk & Balık",
+      "sub_brand": "Kasap",
+      "barcode": "8690000111103",
+      "base_price": 680,
+      "original_price": 750,
+      "stock": 8,
+      "status": "Kritik Stok",
+      "image": "https://images.unsplash.com/photo-1603048588665-791ca8aea617?auto=format&fit=crop&w=400&q=80",
+      "unit": "kg"
+    },
+    {
+      "id": 4,
+      "name": "Sıkma File Portakal 2 kg",
+      "category": "Meyve & Sebze",
+      "sub_brand": "Manav",
+      "barcode": "8690000222201",
+      "base_price": 49.9,
+      "original_price": 65,
+      "stock": 45,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?auto=format&fit=crop&w=400&q=80",
+      "unit": "File"
+    },
+    {
+      "id": 5,
+      "name": "Salkım Domates 1 kg",
+      "category": "Meyve & Sebze",
+      "sub_brand": "Manav",
+      "barcode": "8690000222202",
+      "base_price": 28.5,
+      "original_price": 38,
+      "stock": 60,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=400&q=80",
+      "unit": "kg"
+    },
+    {
+      "id": 6,
+      "name": "Torku Tam Yağlı Taze Kaşar 600 g",
+      "category": "Süt & Şarküteri",
+      "sub_brand": "Sarkuteri",
+      "barcode": "8690000333301",
+      "base_price": 299,
+      "original_price": 479,
+      "stock": 13,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1552767059-ce182ead6c1b?auto=format&fit=crop&w=400&q=80",
+      "unit": "Adet"
+    },
+    {
+      "id": 7,
+      "name": "Ezine Tam Yağlı Olgunlaştırılmış Peynir 500 g",
+      "category": "Süt & Şarküteri",
+      "sub_brand": "Sarkuteri",
+      "barcode": "8690000333302",
+      "base_price": 165,
+      "original_price": 195,
+      "stock": 9,
+      "status": "Kritik Stok",
+      "image": "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=400&q=80",
+      "unit": "Paket"
+    },
+    {
+      "id": 8,
+      "name": "Geleneksel Ekşi Mayalı Trabzon Ekmeği 800 g",
+      "category": "Fırın & Pastane",
+      "sub_brand": "Firin",
+      "barcode": "8690000444401",
+      "base_price": 35,
+      "original_price": 42,
+      "stock": 30,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=400&q=80",
+      "unit": "Adet"
+    },
+    {
+      "id": 9,
+      "name": "Çaykur Rize Turist Çayı 1000 g",
+      "category": "İçecek",
+      "sub_brand": "Icecek",
+      "barcode": "8690000555501",
+      "base_price": 165,
+      "original_price": 185,
+      "stock": 86,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=400&q=80",
+      "unit": "Paket"
+    },
+    {
+      "id": 901,
+      "name": "Tema Kasaphane Erzurum Yerli Besi Dana Kuşbaşı 1 kg",
+      "category": "Et & Tavuk & Balık",
+      "sub_brand": "Kasap",
+      "barcode": "8690000901001",
+      "base_price": 549,
+      "original_price": 615,
+      "stock": 35,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&w=500&q=80",
+      "unit": "kg"
+    },
+    {
+      "id": 902,
+      "name": "Tema Kasaphane Dinlendirilmiş Dana Antrikot 1 kg",
+      "category": "Et & Tavuk & Balık",
+      "sub_brand": "Kasap",
+      "barcode": "8690000901002",
+      "base_price": 675,
+      "original_price": 740,
+      "stock": 22,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=500&q=80",
+      "unit": "kg"
+    },
+    {
+      "id": 903,
+      "name": "Tema Mandıra Erzurum Göğermiş Çeçil Peyniri 500 g",
+      "category": "Tema Mandıra",
+      "sub_brand": "Mandira",
+      "barcode": "8690000901003",
+      "base_price": 189,
+      "original_price": 225,
+      "stock": 40,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=500&q=80",
+      "unit": "Paket"
+    },
+    {
+      "id": 904,
+      "name": "Tema Mandıra Doğal Yayık Köy Tereyağı 1000 g",
+      "category": "Tema Mandıra",
+      "sub_brand": "Mandira",
+      "barcode": "8690000901004",
+      "base_price": 395,
+      "original_price": 450,
+      "stock": 28,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=500&q=80",
+      "unit": "kg"
+    },
+    {
+      "id": 905,
+      "name": "Tema Mandıra Tam Yağlı Tava Yoğurdu 1500 g",
+      "category": "Tema Mandıra",
+      "sub_brand": "Mandira",
+      "barcode": "8690000901005",
+      "base_price": 89.5,
+      "original_price": 105,
+      "stock": 50,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=500&q=80",
+      "unit": "Kova"
+    },
+    {
+      "id": 906,
+      "name": "Tema Fırın Sıcak Taş Fırın Erzurum Lavaşı (5'li Paket)",
+      "category": "Fırın & Pastane",
+      "sub_brand": "Firin",
+      "barcode": "8690000901006",
+      "base_price": 42,
+      "original_price": 50,
+      "stock": 60,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=500&q=80",
+      "unit": "Paket"
+    },
+    {
+      "id": 907,
+      "name": "Tema Fırın Geleneksel Tereyağlı Erzurum Ketesi",
+      "category": "Fırın & Pastane",
+      "sub_brand": "Firin",
+      "barcode": "8690000901007",
+      "base_price": 38,
+      "original_price": 45,
+      "stock": 45,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=500&q=80",
+      "unit": "Adet"
+    },
+    {
+      "id": 908,
+      "name": "Tema Bakliyat İspir Şeker Fasulyesi (Yerli Hasat) 1 kg",
+      "category": "Tema Bakliyat",
+      "sub_brand": "Bakliyat",
+      "barcode": "8690000901008",
+      "base_price": 158,
+      "original_price": 185,
+      "stock": 70,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1515543904379-3d757afe72e4?auto=format&fit=crop&w=500&q=80",
+      "unit": "kg"
+    },
+    {
+      "id": 909,
+      "name": "Tema Bakliyat Gönen Baldo Pirinç 2.5 kg",
+      "category": "Tema Bakliyat",
+      "sub_brand": "Bakliyat",
+      "barcode": "8690000901009",
+      "base_price": 182,
+      "original_price": 210,
+      "stock": 55,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=500&q=80",
+      "unit": "Paket"
+    },
+    {
+      "id": 910,
+      "name": "Tema Bakliyat Kırmızı Futbol Mercimek 1 kg",
+      "category": "Tema Bakliyat",
+      "sub_brand": "Bakliyat",
+      "barcode": "8690000901010",
+      "base_price": 54.9,
+      "original_price": 68,
+      "stock": 90,
+      "status": "Stokta",
+      "image": "https://images.unsplash.com/photo-1515543904379-3d757afe72e4?auto=format&fit=crop&w=500&q=80",
+      "unit": "Paket"
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "Tema Kasaphane (Et & Tavuk)",
+      "sub_brand": "Kasap",
+      "icon": "🥩",
+      "sort_order": 1,
+      "is_active": 1
+    },
+    {
+      "id": 2,
+      "name": "Tema Şarküteri",
+      "sub_brand": "Sarkuteri",
+      "icon": "🧀",
+      "sort_order": 2,
+      "is_active": 1
+    },
+    {
+      "id": 3,
+      "name": "Tema Mandıra (Doğal Süt Ürünleri)",
+      "sub_brand": "Mandira",
+      "icon": "🥛",
+      "sort_order": 3,
+      "is_active": 1
+    },
+    {
+      "id": 4,
+      "name": "Tema Fırın (Taş Fırın & Unlu Mamuller)",
+      "sub_brand": "Firin",
+      "icon": "🥖",
+      "sort_order": 4,
+      "is_active": 1
+    },
+    {
+      "id": 5,
+      "name": "Tema Bakliyat (Yerli Hasat)",
+      "sub_brand": "Bakliyat",
+      "icon": "🌾",
+      "sort_order": 5,
+      "is_active": 1
+    },
+    {
+      "id": 6,
+      "name": "Tema Manav (Meyve & Sebze)",
+      "sub_brand": "Manav",
+      "icon": "🍎",
+      "sort_order": 6,
+      "is_active": 1
+    },
+    {
+      "id": 7,
+      "name": "İçecekler",
+      "sub_brand": "Icecek",
+      "icon": "🥤",
+      "sort_order": 7,
+      "is_active": 1
+    }
+  ],
+  "campaigns": [
+    {
+      "id": 1,
+      "title": "SANALMARKET İLK SİPARİŞE İNDİRİM!",
+      "badge": "SANALMARKET ÖZEL",
+      "code": "TEMA50",
+      "type": "Sabit İndirim",
+      "value": 50,
+      "min_order_amount": 200,
+      "description": "Gezköy OSB ve Erzurum Geneli Aynı Gün Teslimat Fırsatıyla",
+      "image": "https://images.unsplash.com/photo-1528825871115-3581a5387919?auto=format&fit=crop&w=800&q=80",
+      "bg_gradient": "linear-gradient(135deg, #dc2626 0%, #991b1b 100%)",
+      "is_active": 1,
+      "target_phone": null
+    },
+    {
+      "id": 2,
+      "title": "TEMA KASAPHANE DANA ETİ VE SUCUKTA ÖZEL FİYAT!",
+      "badge": "TEMA KASAPHANE ÖZEL",
+      "code": "KASAP30",
+      "type": "Yüzde İndirim",
+      "value": 20,
+      "min_order_amount": 300,
+      "description": "Günlük Kesim Taze Yerli Üretim Kasaphane Ürünlerinde Geçerlidir",
+      "image": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80",
+      "bg_gradient": "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+      "is_active": 1,
+      "target_phone": null
+    },
+    {
+      "id": 3,
+      "title": "BAHÇEDEN SOFRAYA TAZE MANAV FIRSATLARI!",
+      "badge": "TEMA MANAV ÖZEL",
+      "code": "HEMEN20",
+      "type": "Yüzde İndirim",
+      "value": 15,
+      "min_order_amount": 150,
+      "description": "30 Dakikada Ekspres Kapınıza Teslimat",
+      "image": "https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?auto=format&fit=crop&w=800&q=80",
+      "bg_gradient": "linear-gradient(135deg, #16a34a 0%, #14532d 100%)",
+      "is_active": 1,
+      "target_phone": null
+    }
+  ],
+  "brochures": [
+    {
+      "id": 1,
+      "title": "EKİM AYI BÜYÜK TEMA MARKET İNDİRİM KATALOĞU (16 SAYFA KOMPLE BROŞÜR)",
+      "description": "Erzurum ve Bölge Şubelerimizde Geçerli Tema Kasaphane, Tema Mandıra, Tema Fırın ve Tema Bakliyat Özel İndirimleri",
+      "image_url": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80",
+      "pdf_url": "https://temasanalmarket.com",
+      "start_date": "15.10.2026",
+      "end_date": "31.10.2026",
+      "is_active": 1
+    },
+    {
+      "id": 2,
+      "title": "TEMA KASAPHANE & MANDIRA HAFTA SONU HALK GÜNÜ BROŞÜRÜ",
+      "description": "Yerli Besi Günlük Taze Kesim Dana/Kuzu Et Ürünleri ve Doğal Yayla Süt Ürünlerinde Geçerli İndirim Broşürü",
+      "image_url": "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&w=1200&q=80",
+      "pdf_url": "https://temasanalmarket.com",
+      "start_date": "17.10.2026",
+      "end_date": "25.10.2026",
+      "is_active": 1
+    },
+    {
+      "id": 3,
+      "title": "TEMA FIRIN & TEMA BAKLİYAT KIŞLIK ERZAK KATALOĞU",
+      "description": "Yerli Hasat İspir Fasulyesi, Gönen Baldo Pirinç, Mercimek ve Taş Fırın Unlu Mamullerinde Avantaj Kart Fırsatları",
+      "image_url": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=80",
+      "pdf_url": "https://temasanalmarket.com",
+      "start_date": "10.10.2026",
+      "end_date": "30.10.2026",
+      "is_active": 1
+    }
+  ],
+  "couriers": [
+    {
+      "id": 1,
+      "name": "Ahmet Yılmaz (25 AB 123 - Motosiklet)",
+      "phone": "0532 111 22 33",
+      "vehicle_type": "Motosiklet",
+      "status": "AKTIF"
+    },
+    {
+      "id": 2,
+      "name": "Mehmet Demir (25 EV 456 - Motosiklet)",
+      "phone": "0533 444 55 66",
+      "vehicle_type": "Motosiklet",
+      "status": "AKTIF"
+    },
+    {
+      "id": 3,
+      "name": "Emre Kaya (25 TK 789 - Frigorifik Panelvan)",
+      "phone": "0542 777 88 99",
+      "vehicle_type": "Frigorifik Panelvan",
+      "status": "AKTIF"
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "name": "Yönetici Temasan",
+      "phone": "05328883344",
+      "role": "SuperAdmin",
+      "status": "AKTIF",
+      "card_number": "99999995328883344"
+    },
+    {
+      "id": 2,
+      "name": "Kadir Kuzu (Lalapaşa AVM)",
+      "phone": "05312213632",
+      "role": "Merchant",
+      "status": "AKTIF",
+      "card_number": "99999995312213632"
+    },
+    {
+      "id": 3,
+      "name": "Ahmet Yılmaz (Kurye)",
+      "phone": "05321112233",
+      "role": "Courier",
+      "status": "AKTIF",
+      "card_number": "99999995321112233"
+    }
+  ],
+  "orders": [
+    {
+      "id": 1,
+      "order_number": "#TEM-84920",
+      "customer_name": "Murat Kaya",
+      "phone": "0533 222 33 44",
+      "customer_phone": "0533 222 33 44",
+      "delivery_address": "Şükrüpaşa Mah. İstasyon Cad. No:42 Yakutiye / Erzurum",
+      "items_summary": "1x Tema Kasaphane Dana Kuşbaşı 1kg, 1x Tema Mandıra Göğermiş Çeçil 500g",
+      "total": 738,
+      "total_amount": 738,
+      "payment_method": "SANAL_POS",
+      "coupon_code": "TEMA50",
+      "discount_amount": 50,
+      "status": "Hazırlanıyor",
+      "created_at": "17.10.2026 14:20",
+      "branch_name": "Lalapaşa AVM Şubesi",
+      "courier_name": "Ahmet Yılmaz (25 AB 123 - Motosiklet)"
+    },
+    {
+      "id": 2,
+      "order_number": "#TEM-84921",
+      "customer_name": "Selim Demir",
+      "phone": "0542 333 44 55",
+      "customer_phone": "0542 333 44 55",
+      "delivery_address": "Yenişehir Mah. Atatürk Blv. No:18 Palandöken / Erzurum",
+      "items_summary": "2x Trabzon Ekmeği 800g, 1x İspir Şeker Fasulyesi 1kg",
+      "total": 228,
+      "total_amount": 228,
+      "payment_method": "KAPIDA_SOFTPOS",
+      "coupon_code": null,
+      "discount_amount": 0,
+      "status": "Kuryede",
+      "created_at": "17.10.2026 15:05",
+      "branch_name": "Yenişehir AVM Şubesi",
+      "courier_name": "Mehmet Demir (25 EV 456 - Motosiklet)"
+    }
+  ],
+  "applications": [
+    {
+      "id": 101,
+      "name": "Serkan Öztürk",
+      "phone": "0535 612 44 88",
+      "role": "Courier",
+      "vehicle_type": "Motosiklet (25 ERZ 44)",
+      "city_district": "Yakutiye / Erzurum",
+      "status": "ONAY_BEKLIYOR"
+    }
+  ],
+  "sms_logs": [
+    {
+      "id": 1,
+      "created_at": "17.10.2026 10:00",
+      "target_type": "CUSTOMERS",
+      "message": "Tema Avantaj Kart sahiplerine özel bu hafta sonu Tema Kasaphane ve Tema Mandıra ürünlerinde %20 indirim!",
+      "coupon_code": "KASAP30",
+      "sent_count": 240
+    }
+  ],
+  "loyalty_rules": {
+    "id": 1,
+    "spend_per_point": 10,
+    "point_tl_value": 0.1,
+    "min_redeem_points": 50,
+    "applicable_categories": "Tüm Ürünler"
+  },
+  "settings": {
+    "turk_telekom": {
+      "username": "temamrkt",
+      "password": "VN4Um9Tb",
+      "login_password": "K?DXdGPg8tOC",
+      "origin": "TEMA MARKET",
+      "brand_code": "000000",
+      "active_provider": "TURK_TELEKOM"
+    },
+    "netgsm": {
+      "usercode": "8503000000",
+      "password": "",
+      "msgheader": "TEMA MARKET",
+      "endpoint": "https://api.netgsm.com.tr/sms/send/get"
+    },
+    "pos": {
+      "bank_name": "QNB Finansbank Sanal POS",
+      "merchant_id": "100298374",
+      "terminal_id": "67123984",
+      "api_key": "tm_qnb_live_secret",
+      "is_test_mode": 0
+    },
+    "efatura": {
+      "integrator": "Ödeal E-Fatura",
+      "username": "temamarket_gib",
+      "password": "••••••••",
+      "tax_office": "Aziziye Vergi Dairesi",
+      "tax_number": "8390192841",
+      "is_auto_invoice": 1
+    }
+  },
+  "job_applications": [],
+  "user_addresses": {}
+}

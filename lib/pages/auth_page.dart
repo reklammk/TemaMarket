@@ -25,7 +25,7 @@ class AuthPage extends StatefulWidget {
 class _AuthPageState extends State<AuthPage> {
   static const bool _staffLoginEnabled = bool.fromEnvironment(
     'ENABLE_STAFF_LOGIN',
-    defaultValue: false,
+    defaultValue: true,
   );
 
   late String _selectedRole;

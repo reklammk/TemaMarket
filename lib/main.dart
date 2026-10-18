@@ -243,11 +243,6 @@ class _TemasanAppState extends State<TemasanApp> {
                 _currentRoute = 'subdomain';
                 return;
               }
-              final queryRoute = Uri.base.queryParameters['route']?.toLowerCase();
-              if (queryRoute != null && queryRoute.isNotEmpty) {
-                _currentRoute = queryRoute;
-                return;
-              }
               final role = _currentUser?['role'];
               if (role == 'SuperAdmin') {
                 _currentRoute = 'admin';
@@ -277,33 +272,21 @@ class _TemasanAppState extends State<TemasanApp> {
       case 'auth':
         return _buildAuthPage('Customer');
       case 'admin':
+        if (!_hasRole('SuperAdmin')) return _buildAuthPage('SuperAdmin');
         return AdminDashboardPage(
-          user: _currentUser ?? {
-            'id': 1,
-            'name': 'Sistem Yöneticisi',
-            'phone': '905550000000',
-            'role': 'SuperAdmin',
-          },
+          user: _currentUser,
           onBackToStore: () => setState(() => _currentRoute = 'storefront'),
         );
       case 'merchant':
+        if (!_hasRole('Merchant')) return _buildAuthPage('Merchant');
         return MerchantPanelPage(
-          user: _currentUser ?? {
-            'id': 2,
-            'name': 'Tema Market Bayi',
-            'phone': '905550000001',
-            'role': 'Merchant',
-          },
+          user: _currentUser,
           onBackToStore: () => setState(() => _currentRoute = 'storefront'),
         );
       case 'courier':
+        if (!_hasRole('Courier')) return _buildAuthPage('Courier');
         return CourierPanelPage(
-          user: _currentUser ?? {
-            'id': 3,
-            'name': 'Tema Kurye',
-            'phone': '905550000002',
-            'role': 'Courier',
-          },
+          user: _currentUser,
           onBackToStore: () => setState(() => _currentRoute = 'storefront'),
         );
       case 'storefront':
@@ -312,9 +295,15 @@ class _TemasanAppState extends State<TemasanApp> {
           initialTab: _storefrontTab,
           user: _currentUser,
           onOpenLogin: () => setState(() => _currentRoute = 'auth'),
-          onOpenAdmin: () => setState(() => _currentRoute = 'admin'),
-          onOpenMerchant: () => setState(() => _currentRoute = 'merchant'),
-          onOpenCourier: () => setState(() => _currentRoute = 'courier'),
+          onOpenAdmin: _hasRole('SuperAdmin')
+              ? () => setState(() => _currentRoute = 'admin')
+              : null,
+          onOpenMerchant: _hasRole('Merchant')
+              ? () => setState(() => _currentRoute = 'merchant')
+              : null,
+          onOpenCourier: _hasRole('Courier')
+              ? () => setState(() => _currentRoute = 'courier')
+              : null,
           onLogout: _handleLogout,
           onAccountDeleted: _handleAccountDeleted,
         );

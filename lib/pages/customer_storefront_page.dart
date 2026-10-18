@@ -50,6 +50,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   List<Map<String, dynamic>> _branches = [];
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _campaigns = [];
+  List<Map<String, dynamic>> _subdomainPages = [];
   final List<Map<String, dynamic>> _cart = [];
   bool _showSanalMarketView = false;
   int _campaignTab = 0;
@@ -157,6 +158,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         FeatureFlagsService.loadFlags(),
         ApiService.fetchBranches(),
         ApiService.fetchCampaigns(),
+        ApiService.fetchSubdomainPages(),
       ]);
       if (!mounted) return;
       final branches = _maps(result[1] as List<dynamic>);
@@ -164,6 +166,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         _flags = result[0] as FeatureFlags;
         _branches = branches;
         _campaigns = _maps(result[2] as List<dynamic>);
+        _subdomainPages = _maps(result[3] as List<dynamic>);
         _branchId ??= branches.isEmpty ? null : _int(branches.first['id']);
       });
       await _loadProducts();
@@ -395,13 +398,15 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
             if (widget.onOpenAdmin != null)
               IconButton(
                 tooltip: 'Yönetici Paneli',
-                icon: const Icon(Icons.admin_panel_settings_outlined, color: Color(0xFFDC2626)),
+                icon: const Icon(Icons.admin_panel_settings_outlined,
+                    color: Color(0xFFDC2626)),
                 onPressed: widget.onOpenAdmin,
               ),
             IconButton(
-                tooltip: 'Yenile',
-                onPressed: _loading ? null : _load,
-                icon: const Icon(Icons.refresh))
+              tooltip: 'Yenile',
+              onPressed: _loading ? null : _load,
+              icon: const Icon(Icons.refresh),
+            ),
           ],
         ),
         body: _currentTabBody(),
@@ -881,7 +886,15 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
           _homeBrandedCategoriesSection(),
           const SizedBox(height: 20),
 
-          // 6. Tema Şirketler Grubu (Tema İnşaat vb.) (Item 6)
+          // 6. Şubelerimiz Bölümü
+          _homeBranchesSection(),
+          const SizedBox(height: 20),
+
+          // 7. Hakkımızda Bölümü
+          _homeAboutSection(),
+          const SizedBox(height: 20),
+
+          // 8. Tema İnşaat & Şirketler Grubu
           _homeCorporateGroupSection(),
           const SizedBox(height: 16),
 
@@ -1377,58 +1390,45 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   }
 
   Widget _homeBrandedCategoriesSection() {
-    final sections = [
-      {
-        'title': 'Tema Kasaphane',
-        'subdomain': 'kasap',
-        'subtitle': 'Veteriner Hekim Onaylı, Çiftlikten Şubelere Şeffaf Sevk',
-        'desc': 'Kendi kesimhanelerimizde veteriner kontrolünde, İslami usullere uygun helal kesim ve soğuk zincir güvencesiyle.',
-        'icon': Icons.set_meal_outlined,
-        'color': const Color(0xFFDC2626),
-        'category': 'Tema Kasaphane',
-        'hasTracking': true,
-      },
-      {
-        'title': 'Tema Şarküteri',
-        'subdomain': 'sarkuteri',
-        'subtitle': 'Yöresel Peynirler & Gurme Şarküteri Lezzetleri',
-        'desc': 'Erzurum ve Doğu Anadolu yaylalarından seçme eski kaşar, tulum peyniri, ev yapımı sucuk ve pastırma.',
-        'icon': Icons.egg_alt_outlined,
-        'color': const Color(0xFFB45309),
-        'category': 'Şarküteri',
-        'hasTracking': false,
-      },
-      {
-        'title': 'Tema Mandıra',
-        'subdomain': 'mandira',
-        'subtitle': 'Köy Peynirleri, Doğal Süt & Yayık Tereyağı',
-        'desc': 'Yöresel mandıra lezzetleri, katkısız peynir çeşitleri ve taze süt ürünleri.',
-        'icon': Icons.local_drink_outlined,
-        'color': const Color(0xFFD97706),
-        'category': 'Tema Mandıra',
-        'hasTracking': false,
-      },
-      {
-        'title': 'Tema Fırın',
-        'subdomain': 'firin',
-        'subtitle': 'Taş Fırından Taptaze Ekmek & Sıcak Simitler',
-        'desc': 'Geleneksel taş fırın ekmekleri, simit, unlu mamuller ve enfes tatlılar her saat taze.',
-        'icon': Icons.bakery_dining_outlined,
-        'color': const Color(0xFFEA580C),
-        'category': 'Tema Fırın',
-        'hasTracking': false,
-      },
-      {
-        'title': 'Tema Bakliyat',
-        'subdomain': 'bakliyat',
-        'subtitle': 'Anadolu Hasadı Bereketli Bakliyat Çeşitleri',
-        'desc': 'Özenle seçilen yerli üretim mercimek, nohut, fasulye ve pirinç çeşitleri en uygun fiyatlarla.',
-        'icon': Icons.grain_outlined,
-        'color': const Color(0xFF15803D),
-        'category': 'Tema Bakliyat',
-        'hasTracking': false,
-      },
-    ];
+    final rawPages = _subdomainPages.isNotEmpty
+        ? _subdomainPages.where((p) => p['is_active'] != false).toList()
+        : ApiService.defaultSubdomainPages;
+
+    final sections = rawPages.map((p) {
+      final sub = p['subdomain']?.toString() ?? 'kasap';
+      final hex = (p['color_hex']?.toString() ?? '#DC2626').replaceAll('#', '');
+      Color parsedColor;
+      try {
+        parsedColor = Color(int.parse('FF$hex', radix: 16));
+      } catch (_) {
+        parsedColor = const Color(0xFFDC2626);
+      }
+      IconData iconData = Icons.storefront_outlined;
+      if (sub.contains('kasap')) {
+        iconData = Icons.set_meal_outlined;
+      } else if (sub.contains('sarkuteri')) {
+        iconData = Icons.egg_alt_outlined;
+      } else if (sub.contains('mandira')) {
+        iconData = Icons.local_drink_outlined;
+      } else if (sub.contains('firin')) {
+        iconData = Icons.bakery_dining_outlined;
+      } else if (sub.contains('bakliyat')) {
+        iconData = Icons.grain_outlined;
+      } else if (sub.contains('insaat')) {
+        iconData = Icons.apartment_outlined;
+      }
+
+      return <String, dynamic>{
+        'title': p['title']?.toString() ?? 'Tema Reyon',
+        'subdomain': sub,
+        'subtitle': p['slogan']?.toString() ?? '',
+        'desc': p['description']?.toString() ?? '',
+        'icon': iconData,
+        'color': parsedColor,
+        'category': p['category']?.toString() ?? 'Tema Kasaphane',
+        'hasTracking': sub.contains('kasap'),
+      };
+    }).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1652,6 +1652,292 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+    Widget _homeBranchesSection() {
+    return Card(
+      color: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.storefront_rounded, color: Color(0xFFDC2626), size: 24),
+                    SizedBox(width: 8),
+                    Text(
+                      'Şubelerimiz',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    '24 ŞUBE',
+                    style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w900, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Erzurum ve çevre ilçelerde 24 modern şubemizle taze ve güvenilir ürünleri mahallenize ulaştırıyoruz.',
+              style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.3),
+            ),
+            const SizedBox(height: 12),
+            // Öne çıkan 2 merkezi şube özeti
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.Border.all(color: const Color(0xFFF1F5F9)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Lalapaşa AVM Şubesi',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                      ),
+                      Text(
+                        'Yakutiye',
+                        style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w700, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Cumhuriyet Cd. | 6.000 m² Satış Alanı | 08:00 - 22:00',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  ),
+                  Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Yenişehir AVM Şubesi',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                      ),
+                      Text(
+                        'Palandöken',
+                        style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w700, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Hacı Salih Efendi Mh. | 3.900 m² Satış Alanı | 08:00 - 22:00',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFDC2626),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.map_outlined, size: 18),
+                label: const Text('Tüm 24 Şubemizi Haritada ve Listede Gör'),
+                onPressed: () {
+                  setState(() => _tab = 1);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _homeAboutSection() {
+    return Card(
+      color: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.verified_outlined, color: Color(0xFF16A34A), size: 24),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '1989\'dan Günümüze Erzurum\'un Güvenilir Markası',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Tema Marketçilik A.Ş. olarak veteriner hekim kontrollü kendi et kombinamız, günlük taze taş fırınlarımız ve mandıra süt üretimimizle sofralarınıza kalite taşıyoruz.',
+              style: TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.35),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Column(
+                      children: [
+                        Text('35 Yıl', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A))),
+                        Text('Tecrübe', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Column(
+                      children: [
+                        Text('24+', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A))),
+                        Text('Şube', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Column(
+                      children: [
+                        Text('650+', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A))),
+                        Text('Personel', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFDC2626)),
+                  foregroundColor: const Color(0xFFDC2626),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.info_outline, size: 16),
+                label: const Text('Kurumsal Bilgilerimiz ve Tarihçemiz'),
+                onPressed: _openAboutModal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openAboutModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (ctx, scrollCtrl) => Padding(
+          padding: const EdgeInsets.all(20),
+          child: ListView(
+            controller: scrollCtrl,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.business_rounded, color: Color(0xFFDC2626), size: 26),
+                      SizedBox(width: 8),
+                      Text(
+                        'Hakkımızda',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '1989\'dan Günümüze Tema Marketler Zinciri',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Kurucumuz Zülküf BAKAÇ tarafından 1989 yılında Erzurum\'da temelleri atılan markamız Tema Marketler Zinciri, çeyrek asrı aşkın süredir dürüst esnaflık geleneğini modern perakendecilik anlayışıyla harmanlamaktadır.\n\n'
+                'Kendi et kombina tesisimiz Tema Kasaphane ile veteriner kontrolünde helal kesim yerli besi etleri, Tema Mandıra ile günlük doğal süt ürünlerini ve Tema Fırın ile taş fırın lezzetlerini reyonlarımıza taşıyoruz.\n\n'
+                'Erzurum\'un öz sermayesiyle kurulan şirketimiz, 650\'den fazla çalışanıyla kentimizin istihdamına ve ekonomik gücüne doğrudan katkı sağlamaktadır.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF334155), height: 1.45),
+              ),
+              const Divider(height: 28),
+              const Text(
+                'Vizyonumuz & Misyonumuz',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Müşteri memnuniyetini, ürün tazeliğini ve dürüst fiyat politikasını her şeyin üstünde tutarak; Doğu Anadolu\'nun en güvenilir, sürdürülebilir ve öncü perakende zinciri olmak.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
@@ -3018,7 +3304,8 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   void _showBarcodeDialog(String barcode, String phone) {
     final displayBarcode = barcode.isNotEmpty
         ? barcode
-        : (phone.isNotEmpty ? temaAvantajCardNumber(phone) : '99999990000000000');
+        : (phone.isNotEmpty ? temaAvantajCardNumber(phone) : '');
+    if (displayBarcode.isEmpty) return;
     final formattedCardNo = formatTemaAvantajCardNumber(displayBarcode);
 
     showDialog(
