@@ -97,8 +97,17 @@ workflows:
     name: TEMA Market Android Google Play Build (.aab)
     max_build_duration: 30
     instance_type: linux
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
     environment:
       flutter: 3.38.9
+      vars:
+        PACKAGE_NAME: "com.tema.san"
     scripts:
       - name: Flutter bağımlılıklarını yükle
         script: |
@@ -109,21 +118,33 @@ workflows:
           flutter test
       - name: Android release imzasını hazırla
         script: |
-          : "${CM_KEYSTORE_PATH:?Codemagic Android signing ayarı eksik}"
-          : "${CM_KEYSTORE_PASSWORD:?Keystore parolası eksik}"
-          : "${CM_KEY_ALIAS:?Key alias eksik}"
-          : "${CM_KEY_PASSWORD:?Key parolası eksik}"
-          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
-            "$CM_KEYSTORE_PATH" \
-            "$CM_KEYSTORE_PASSWORD" \
-            "$CM_KEY_ALIAS" \
-            "$CM_KEY_PASSWORD" > android/key.properties
+          if [ -n "$CM_KEYSTORE_PATH" ] && [ -f "$CM_KEYSTORE_PATH" ]; then
+            printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+              "$CM_KEYSTORE_PATH" \
+              "$CM_KEYSTORE_PASSWORD" \
+              "$CM_KEY_ALIAS" \
+              "$CM_KEY_PASSWORD" > android/key.properties
+            echo "Release imzalama key.properties başarıyla hazırlandı."
+          else
+            echo "BİLGİ: CM_KEYSTORE_PATH ortam değişkeni tanımlı değil. Standart release derlemesi yapılıyor."
+          fi
       - name: Android App Bundle (.aab) Oluştur
         script: |
-          flutter build aab --release --build-name=1.0.1 --build-number=${BUILD_NUMBER:-1}
+          ANDROID_BUILD_NUMBER=$((47 + ${BUILD_NUMBER:-1}))
+          echo "Android build number: $ANDROID_BUILD_NUMBER"
+          flutter build aab --release \
+            --build-name=1.0.2 \
+            --build-number="$ANDROID_BUILD_NUMBER"
     artifacts:
       - build/app/outputs/bundle/release/*.aab
     publishing:
       email:
         recipients:
           - mehmetp835@gmail.com
+        notify:
+          failure: true
+          success: true
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: false
