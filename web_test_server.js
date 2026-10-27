@@ -208,6 +208,11 @@ const server = http.createServer(async (req, res) => {
   // Normalize API route path (strip /api/index.php or /api prefix)
   if (pathname.startsWith('/api/')) {
     const route = pathname.replace(/^\/api\/index\.php/, '').replace(/^\/api/, '') || '/';
+    if (process.env.USE_LOCAL_MOCK_DB !== '1') {
+      const searchStr = parsedUrl.search || '';
+      proxyToLive(req, res, '/api/index.php' + route + searchStr);
+      return;
+    }
     const db = loadDb();
 
     // 1. Admin Metrics
