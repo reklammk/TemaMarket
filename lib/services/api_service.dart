@@ -225,8 +225,15 @@ class ApiService {
         }
         decoded = Map<String, dynamic>.from(raw);
       } on FormatException {
+        final trimmed = response.body.trimLeft().toLowerCase();
+        final isHtml = trimmed.startsWith('<!doctype') ||
+            trimmed.startsWith('<html') ||
+            (response.headers['content-type']?.toLowerCase().contains('text/html') ??
+                false);
         throw ApiException(
-          'Sunucu geçersiz bir yanıt döndürdü.',
+          isHtml
+              ? 'Sunucu API yerine web sayfası döndürdü (temasan.com/api PHP yönlendirmesi aktif değil).'
+              : 'Sunucu geçersiz bir yanıt döndürdü.',
           response.statusCode,
         );
       }

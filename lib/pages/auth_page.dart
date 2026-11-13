@@ -62,25 +62,29 @@ class _AuthPageState extends State<AuthPage> {
 
   Future<void> _openPrivacyPolicy() async {
     final uri = Uri.parse('https://temasan.com/kvkk');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
-        mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('KVKK sayfası açılamadı.')),
-      );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
     }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('KVKK sayfası açılamadı.')),
+    );
   }
 
-  void _sendOtp() async {
-    final phone = _normalizedPhone();
-    if (phone == null) {
+  Future<void> _sendOtp() async {
+    final normalizedPhone = _normalizedPhone();
+    if (normalizedPhone == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Lütfen geçerli bir telefon numarası girin.'),
+          content:
+              Text('Geçerli bir cep telefonu numarası girin (05XX XXX XX XX).'),
           backgroundColor: Color(0xFFDC2626),
         ),
       );
       return;
     }
+
     if (_selectedRole == 'Customer' && !_privacyAcknowledged) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -92,31 +96,152 @@ class _AuthPageState extends State<AuthPage> {
     }
 
     setState(() => _isLoading = true);
+
     try {
       await ApiService.sendOtp(
-        phone,
+        normalizedPhone,
         role: _selectedRole,
         privacyAcknowledged: _privacyAcknowledged,
         smsConsent: _smsConsent,
       );
-      if (mounted) _showOtpModal();
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              error.toString().replaceAll('ApiException(200): ', ''),
-            ),
-            backgroundColor: const Color(0xFFDC2626),
-          ),
-        );
-      }
+
+      if (!mounted) return;
+      _openOtpModal(normalizedPhone);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('ApiException: ', '')),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _showOtpModal() {
+  void _appendPhoneDigit(String digit) {
+    final current = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    if (current.length >= 11) return;
+    setState(() {
+      _phoneController.text = '$current$digit';
+    });
+  }
+
+  void _backspacePhone() {
+    final current = _phoneController.text;
+    if (current.isEmpty) return;
+    setState(() {
+      _phoneController.text = current.substring(0, current.length - 1);
+    });
+  }
+
+  void _clearPhone() {
+    setState(() {
+      _phoneController.clear();
+    });
+  }
+
+  Widget _buildKeypad({
+    required ValueChanged<String> onDigit,
+    required VoidCallback onBackspace,
+    required VoidCallback onClear,
+  }) {
+    Widget keyTile(String label, {VoidCallback? onTap, Widget? child}) {
+      return Expanded(
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: onTap,
+              child: Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFECE9E2)),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x08000000),
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: child ??
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            keyTile('1', onTap: () => onDigit('1')),
+            keyTile('2', onTap: () => onDigit('2')),
+            keyTile('3', onTap: () => onDigit('3')),
+          ],
+        ),
+        Row(
+          children: [
+            keyTile('4', onTap: () => onDigit('4')),
+            keyTile('5', onTap: () => onDigit('5')),
+            keyTile('6', onTap: () => onDigit('6')),
+          ],
+        ),
+        Row(
+          children: [
+            keyTile('7', onTap: () => onDigit('7')),
+            keyTile('8', onTap: () => onDigit('8')),
+            keyTile('9', onTap: () => onDigit('9')),
+          ],
+        ),
+        Row(
+          children: [
+            keyTile(
+              'Temizle',
+              onTap: onClear,
+              child: const Text(
+                'Temizle',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ),
+            keyTile('0', onTap: () => onDigit('0')),
+            keyTile(
+              'Sil',
+              onTap: onBackspace,
+              child: const Icon(
+                Icons.backspace_outlined,
+                size: 20,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _openOtpModal(String normalizedPhone) {
     final otpController = TextEditingController();
     bool verifying = false;
     String? errorText;
@@ -124,193 +249,296 @@ class _AuthPageState extends State<AuthPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: const Color(0xFFFAF8F5),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (ctx, setModalState) {
+          builder: (modalCtx, setModalState) {
             Future<void> verify() async {
               final code = otpController.text.trim();
-              if (code.isEmpty) {
+              if (code.length != 6) {
                 setModalState(
-                    () => errorText = 'Lütfen doğrulama kodunu girin.');
+                    () => errorText = 'Lütfen 6 haneli doğrulama kodunu girin.');
                 return;
               }
+
               setModalState(() {
                 verifying = true;
                 errorText = null;
               });
-              try {
-                final phone = _normalizedPhone();
-                if (phone == null) {
-                  throw const ApiException('Telefon numarası geçersiz.');
-                }
 
-                final res = await ApiService.verifyOtp(
-                  phone,
+              try {
+                final data = await ApiService.verifyOtp(
+                  normalizedPhone,
                   code,
                   expectedRole: _selectedRole,
                 );
-                final Map<String, dynamic> rawUser = res['user'] ?? res;
-                final Map<String, dynamic> user =
-                    Map<String, dynamic>.from(rawUser);
-
-                // 17 haneli Tema Avantaj Kart Numarasını iliştir
-                user['tema_card_number'] ??= temaAvantajCardNumber(phone);
-                if (_nameController.text.trim().isNotEmpty &&
-                    (user['name'] == null || user['name'] == '')) {
-                  user['name'] = _nameController.text.trim();
+                if (data['token'] == null || data['user'] == null) {
+                  throw const ApiException('Geçerli oturum bilgisi alınamadı.');
                 }
 
-                if (!ctx.mounted) return;
-                Navigator.pop(ctx);
-                widget.onLoginSuccess?.call(user);
+                final serverUser = Map<String, dynamic>.from(
+                  data['user'] as Map,
+                );
+                final String userName =
+                    serverUser['name']?.toString().trim().isNotEmpty == true
+                        ? serverUser['name'].toString()
+                        : (_nameController.text.trim().isNotEmpty
+                            ? _nameController.text.trim()
+                            : 'Tema Müşteri');
+                final userObj = {
+                  ...serverUser,
+                  'name': userName,
+                  'phone': serverUser['phone'] ?? normalizedPhone,
+                  'user_barcode': serverUser['user_barcode'] ??
+                      temaAvantajCardNumber(normalizedPhone),
+                  'sms_consent': serverUser['sms_consent'] ?? _smsConsent,
+                };
+                await ApiService.saveAuthSession(
+                  data['token'].toString(),
+                  userObj,
+                );
+
+                if (modalCtx.mounted) Navigator.pop(modalCtx);
+                if (!mounted) return;
+                widget.onLoginSuccess?.call(userObj);
               } catch (e) {
                 setModalState(() {
-                  verifying = false;
-                  errorText =
-                      e.toString().replaceAll('ApiException(200): ', '');
+                  errorText = e.toString().replaceAll('ApiException: ', '');
                 });
+              } finally {
+                if (modalCtx.mounted) {
+                  setModalState(() => verifying = false);
+                }
               }
             }
 
+            final currentDigits = otpController.text;
+
             return Padding(
-              padding:
-                  EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                ),
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
-                child: SafeArea(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Handle Bar
-                      Container(
-                        width: 40,
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 18,
+                left: 18,
+                right: 18,
+                top: 16,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 42,
                         height: 4,
-                        margin: const EdgeInsets.only(bottom: 20),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFCBD5E1),
-                          borderRadius: BorderRadius.circular(100),
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                      const Icon(Icons.mark_email_read_rounded,
-                          size: 48, color: Color(0xFFDC2626)),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'SMS Doğrulama Kodu',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF0F172A),
-                        ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Doğrulama Kodu',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${_normalizedPhone() ?? _phoneController.text} numarasına gönderilen 6 haneli doğrulama kodunu giriniz.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 13, color: Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(18),
                       ),
-
-                      const SizedBox(height: 20),
-                      TextField(
-                        controller: otpController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(6),
-                        ],
-                        autofocus: true,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 28,
-                          letterSpacing: 8,
-                          color: Color(0xFF0F172A),
-                        ),
-                        decoration: InputDecoration(
-                          hintText: '••••••',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide:
-                                const BorderSide(color: Color(0xFFDC2626)),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDC2626)
+                                  .withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.sms_outlined,
+                              color: Color(0xFFFCA5A5),
+                              size: 20,
+                            ),
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(
-                                color: Color(0xFFDC2626), width: 2),
-                          ),
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        onSubmitted: (_) => verify(),
-                      ),
-                      if (errorText != null) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          errorText!,
-                          style: const TextStyle(
-                              color: Color(0xFFDC2626),
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold),
-                        ),
-                      ],
-
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFDC2626),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(100)),
-                          ),
-                          onPressed: verifying ? null : verify,
-                          child: verifying
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                      color: Colors.white, strokeWidth: 2.5),
-                                )
-                              : const Text(
-                                  'Giriş Yap ve Devam Et',
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Telefon Numaranızı Doğrulayın',
                                   style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w900,
-                                      color: Colors.white),
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13.5,
+                                  ),
                                 ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '$normalizedPhone numarasına gönderilen 6 haneli kodu girin',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // 6 Haneli Görsel Kutular
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(6, (idx) {
+                        final char = idx < currentDigits.length
+                            ? currentDigits[idx]
+                            : '';
+                        final isFocused = idx == currentDigits.length;
+                        return Expanded(
+                          child: Container(
+                            height: 52,
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isFocused
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFFE2E8F0),
+                                width: isFocused ? 2 : 1,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                char,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: otpController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(6),
+                      ],
+                      textAlign: TextAlign.center,
+                      onChanged: (_) => setModalState(() {}),
+                      onSubmitted: (_) => verify(),
+                      decoration: InputDecoration(
+                        hintText: 'Kodu klavyeden yazabilir veya aşağıdan tuşlayabilirsiniz',
+                        hintStyle: const TextStyle(fontSize: 11.5),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                    ),
+                    if (errorText != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorText!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFFDC2626),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
-                  ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFDC2626),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                        ),
+                        onPressed: verifying ? null : verify,
+                        child: verifying
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2.5),
+                              )
+                            : const Text(
+                                'Doğrula ve Giriş Yap',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildKeypad(
+                      onDigit: (d) {
+                        if (otpController.text.length >= 6) return;
+                        setModalState(() {
+                          otpController.text = '${otpController.text}$d';
+                        });
+                      },
+                      onBackspace: () {
+                        if (otpController.text.isEmpty) return;
+                        setModalState(() {
+                          otpController.text = otpController.text
+                              .substring(0, otpController.text.length - 1);
+                        });
+                      },
+                      onClear: () {
+                        setModalState(() => otpController.clear());
+                      },
+                    ),
+                  ],
                 ),
               ),
             );
           },
         );
       },
-    );
+    ).whenComplete(otpController.dispose);
   }
 
   void _onNavTap(int index) {
-    if (index == 0 || index == 1 || index == 2 || index == 3) {
-      if (widget.onNavigate != null) {
-        widget.onNavigate!(index);
-      } else if (widget.onClose != null) {
-        widget.onClose!();
-      } else if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
+    if (widget.onNavigate != null) {
+      widget.onNavigate!(index);
+    } else if (widget.onClose != null) {
+      widget.onClose!();
     }
   }
 
   Widget _buildFloatingNavbar(BuildContext context) {
-    final List<Map<String, dynamic>> navItems = [
+    final navItems = [
       {'id': 0, 'icon': Icons.home_rounded, 'label': 'Ana Sayfa'},
       {'id': 1, 'icon': Icons.store_rounded, 'label': 'Şubeler'},
       {'id': 2, 'icon': Icons.shopping_bag_outlined, 'label': 'Sepetim'},
@@ -398,84 +626,96 @@ class _AuthPageState extends State<AuthPage> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Maia Suites / Gem Event tarzı yüzen pill üst bar + resmi TEMA logosu
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFECE9E2)),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x0F000000),
-                      blurRadius: 16,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Image.asset(
-                      'assets/logo.png',
-                      height: 34,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Text(
-                        'TEMA MARKET',
-                        style: TextStyle(
-                          color: Color(0xFFDC2626),
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
+              // Üst Bar: Geri Butonu + Resmi TEMA Logosu + Rozet
+              Row(
+                children: [
+                  if (widget.onClose != null || widget.onNavigate != null) ...[
+                    Material(
+                      color: Colors.white,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => _onNavTap(0),
+                        child: Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFFECE9E2)),
+                          ),
+                          child: const Icon(Icons.chevron_left_rounded,
+                              color: Color(0xFF0F172A), size: 24),
                         ),
                       ),
                     ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEE2E2),
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.verified_user_rounded,
-                              color: Color(0xFFDC2626), size: 15),
-                          SizedBox(width: 5),
-                          Text(
-                            'Üye Girişi',
-                            style: TextStyle(
-                              color: Color(0xFFDC2626),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 12,
-                            ),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Image.asset(
+                        'assets/logo.png',
+                        height: 34,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Text(
+                          'TEMA MARKET',
+                          style: TextStyle(
+                            color: Color(0xFFDC2626),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.verified_user_rounded,
+                            color: Color(0xFFDC2626), size: 15),
+                        SizedBox(width: 5),
+                        Text(
+                          'Üye Girişi',
+                          style: TextStyle(
+                            color: Color(0xFFDC2626),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 18),
-              // Tema Avantaj Kart Teşvik Kartı
+              const Text(
+                'Telefon Numaranızı Girin',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Fotoğraftaki koyu bilgi kartı (TEMA renkleriyle)
               Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border:
-                      Border.all(color: const Color(0xFFDC2626), width: 1.5),
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(18),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x33DC2626),
-                      blurRadius: 16,
+                      color: Color(0x1A0F172A),
+                      blurRadius: 14,
                       offset: Offset(0, 4),
                     ),
                   ],
@@ -483,17 +723,16 @@ class _AuthPageState extends State<AuthPage> {
                 child: Row(
                   children: [
                     Container(
-                      width: 46,
-                      height: 46,
+                      width: 42,
+                      height: 42,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF2A55), Color(0xFFDC2626)],
-                        ),
-                        borderRadius: BorderRadius.circular(14),
+                        color: const Color(0xFFDC2626),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Center(
-                        child: Icon(Icons.credit_card_rounded,
-                            color: Colors.white, size: 26),
+                      child: const Icon(
+                        Icons.shield_outlined,
+                        color: Colors.white,
+                        size: 22,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -501,27 +740,21 @@ class _AuthPageState extends State<AuthPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Icon(Icons.star_rounded,
-                                  color: Colors.amber, size: 16),
-                              SizedBox(width: 4),
-                              Text(
-                                'Tema Avantaj Kart',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 3),
                           Text(
-                            'Giriş yapın veya kaydolun; alışverişlerinizde puan kazanın, özel kasaphane ve reyon indirimlerinden yararlanın!',
+                            'Telefon Doğrulama',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Devam etmek için cep telefonu numaranızı girin; Tema Avantaj Kartınızla puan kazanın.',
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 11.5,
+                              height: 1.3,
                             ),
                           ),
                         ],
@@ -531,124 +764,174 @@ class _AuthPageState extends State<AuthPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              Card(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24)),
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
+              if (_staffLoginEnabled) ...[
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedRole,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Giriş Yapılacak Rol',
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'Customer',
+                        child: Text('🛒 Müşteri Hesabı',
+                            overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(
+                        value: 'Merchant',
+                        child: Text('🏢 Bayi / Şube Yöneticisi',
+                            overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(
+                        value: 'Courier',
+                        child: Text('🛵 Kurye Teslimat Personeli',
+                            overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(
+                        value: 'SuperAdmin',
+                        child: Text('👑 Genel Yönetici Konsolu',
+                            overflow: TextOverflow.ellipsis)),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _selectedRole = val);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
+              const Text(
+                'Cep Telefonu',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(11),
+                ],
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                ),
+                decoration: InputDecoration(
+                  hintText: '5XX XXX XX XX',
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 14, right: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F1EC),
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                          child: const Text(
+                            '+90',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                onSubmitted: (_) => _sendOtp(),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Ad Soyad (Kart ve Profil İçin - İsteğe Bağlı)',
+                  prefixIcon: Icon(Icons.badge_outlined),
+                  fillColor: Colors.white,
+                ),
+              ),
+              if (_selectedRole == 'Customer') ...[
+                const SizedBox(height: 6),
+                CheckboxListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _privacyAcknowledged,
+                  onChanged: (value) => setState(
+                    () => _privacyAcknowledged = value ?? false,
+                  ),
+                  title: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      if (_staffLoginEnabled) ...[
-                        DropdownButtonFormField<String>(
-                          initialValue: _selectedRole,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Giriş Yapılacak Rol',
-                            border: OutlineInputBorder(),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                                value: 'Customer',
-                                child: Text('🛒 Müşteri Hesabı',
-                                    overflow: TextOverflow.ellipsis)),
-                            DropdownMenuItem(
-                                value: 'Merchant',
-                                child: Text('🏢 Bayi / Şube Yöneticisi',
-                                    overflow: TextOverflow.ellipsis)),
-                            DropdownMenuItem(
-                                value: 'Courier',
-                                child: Text('🛵 Kurye Teslimat Personeli',
-                                    overflow: TextOverflow.ellipsis)),
-                            DropdownMenuItem(
-                                value: 'SuperAdmin',
-                                child: Text('👑 Genel Yönetici Konsolu',
-                                    overflow: TextOverflow.ellipsis)),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() => _selectedRole = val);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      TextField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'Telefon Numarası',
-                          prefixIcon: Icon(Icons.phone),
-                          border: OutlineInputBorder(),
-                        ),
-                        onSubmitted: (_) => _sendOtp(),
+                      const Text(
+                        'KVKK aydınlatma metnini okudum. ',
+                        style: TextStyle(fontSize: 12),
                       ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _nameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Ad Soyad (Kart ve Profil İçin)',
-                          prefixIcon: Icon(Icons.badge_outlined),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      if (_selectedRole == 'Customer') ...[
-                        const SizedBox(height: 10),
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          value: _privacyAcknowledged,
-                          onChanged: (value) => setState(
-                            () => _privacyAcknowledged = value ?? false,
+                      GestureDetector(
+                        onTap: _openPrivacyPolicy,
+                        child: const Text(
+                          'Metni görüntüle',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFDC2626),
+                            fontWeight: FontWeight.w700,
+                            decoration: TextDecoration.underline,
                           ),
-                          title: const Text(
-                            'KVKK aydınlatma metnini okudum.',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton(
-                            onPressed: _openPrivacyPolicy,
-                            child: const Text('Aydınlatma metnini görüntüle'),
-                          ),
-                        ),
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          value: _smsConsent,
-                          onChanged: (value) =>
-                              setState(() => _smsConsent = value ?? false),
-                          title: const Text(
-                            'Kampanya ve fırsatlar için SMS almak istiyorum (isteğe bağlı).',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFDC2626),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(100)),
-                          ),
-                          onPressed: _isLoading ? null : _sendOtp,
-                          child: _isLoading
-                              ? const CircularProgressIndicator(
-                                  color: Colors.white)
-                              : const Text('SMS Kodu Gönder',
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w900,
-                                      color: Colors.white)),
                         ),
                       ),
                     ],
                   ),
                 ),
+                CheckboxListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _smsConsent,
+                  onChanged: (value) =>
+                      setState(() => _smsConsent = value ?? false),
+                  title: const Text(
+                    'Kampanya ve fırsatlar için SMS almak istiyorum (isteğe bağlı).',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFDC2626),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(100)),
+                  ),
+                  onPressed: _isLoading ? null : _sendOtp,
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'SMS Kodu Gönder',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              // Fotoğraftaki doğrudan rakam tuş takımı
+              _buildKeypad(
+                onDigit: _appendPhoneDigit,
+                onBackspace: _backspacePhone,
+                onClear: _clearPhone,
               ),
             ],
           ),

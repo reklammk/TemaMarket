@@ -772,129 +772,362 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Kampanyalar & Fırsatlar',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF991B1B), Color(0xFFDC2626)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(100),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x28DC2626),
+                  blurRadius: 18,
+                  offset: Offset(0, 6),
                 ),
-                child: const Text(
-                  'Aktüel Fırsatlar',
-                  style: TextStyle(
-                    color: Color(0xFFDC2626),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Sekmeler: Tekli Ürün İndirimleri vs Aktüel Broşürler
-          Row(
-            children: [
-              ChoiceChip(
-                label: const Text('Tekli Ürün İndirimleri'),
-                selected: _campaignTab == 0,
-                onSelected: (_) => setState(() => _campaignTab = 0),
-              ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text('Aktüel Broşürler'),
-                selected: _campaignTab == 1,
-                onSelected: (_) => setState(() => _campaignTab = 1),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (_campaignTab == 1) ...[
-            // Aktüel Broşürler Sekmesi
-            ..._brochures.map((brochure) => Card(
-                  margin: const EdgeInsets.only(bottom: 14),
-                  clipBehavior: Clip.antiAlias,
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Image.network(
-                        brochure['image']?.toString() ?? '',
-                        height: 180,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          height: 140,
-                          color: const Color(0xFFF1F5F9),
-                          child: const Center(
-                            child: Icon(Icons.menu_book_rounded,
-                                size: 48, color: Color(0xFFDC2626)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                        child: Text(
+                          '${_brochures.length} Aktüel Katalog • ${discounted.length} İndirimli Ürün',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Sizin İçin Seçtiklerimiz',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 21,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Haftalık aktüel broşürleri inceleyin, tekli ürün indirimlerini kaçırmayın.',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12.5,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Icon(Icons.menu_book_rounded,
+                      color: Colors.white, size: 28),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F1EC),
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _campaignTab = 1),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _campaignTab == 1
+                            ? const Color(0xFFDC2626)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'Aktüel Broşürler (${_brochures.length})',
+                          style: TextStyle(
+                            color: _campaignTab == 1
+                                ? Colors.white
+                                : const Color(0xFF334155),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _campaignTab = 0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _campaignTab == 0
+                            ? const Color(0xFFDC2626)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'İndirimli Ürünler (${discounted.length})',
+                          style: TextStyle(
+                            color: _campaignTab == 0
+                                ? Colors.white
+                                : const Color(0xFF334155),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (_campaignTab == 1) ...[
+            // Zengin Görselli Aktüel Broşürler Vitrini
+            ..._brochures.map((brochure) => Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0xFFECE9E2)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0D000000),
+                        blurRadius: 16,
+                        offset: Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => _openBrochureViewer(brochure),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Stack(
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  brochure['title']?.toString() ?? '',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFEF3C7),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    brochure['dates']?.toString() ?? '',
-                                    style: const TextStyle(
-                                      color: Color(0xFF92400E),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              brochure['description']?.toString() ?? '',
-                              style: const TextStyle(
-                                  fontSize: 13, color: Color(0xFF475569)),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
+                            Image.network(
+                              brochure['image']?.toString() ?? '',
+                              height: 210,
                               width: double.infinity,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFDC2626),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                height: 180,
+                                color: const Color(0xFFFEE2E2),
+                                child: const Center(
+                                  child: Icon(Icons.menu_book_rounded,
+                                      size: 56, color: Color(0xFFDC2626)),
                                 ),
-                                icon: const Icon(Icons.fullscreen, size: 20),
-                                label: const Text('Broşürü Tam Ekran İncele'),
-                                onPressed: () => _openBrochureViewer(brochure),
+                              ),
+                            ),
+                            Positioned.fill(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black.withValues(alpha: 0.65),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 12,
+                              left: 12,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDC2626),
+                                  borderRadius: BorderRadius.circular(100),
+                                ),
+                                child: Text(
+                                  brochure['dates']?.toString() ?? 'Aktüel',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 12,
+                              right: 12,
+                              child: Container(
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.fullscreen_rounded,
+                                    size: 18, color: Color(0xFF0F172A)),
+                              ),
+                            ),
+                            Positioned(
+                              left: 16,
+                              right: 16,
+                              bottom: 14,
+                              child: Text(
+                                brochure['title']?.toString() ?? '',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                brochure['description']?.toString() ?? '',
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 13,
+                                  height: 1.35,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFDC2626),
+                                  ),
+                                  icon: const Icon(Icons.fullscreen, size: 18),
+                                  label: const Text('Broşürü Tam Ekran İncele'),
+                                  onPressed: () =>
+                                      _openBrochureViewer(brochure),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )),
+          ] else ...[
+            if (_brochures.isNotEmpty) ...[
+              SizedBox(
+                height: 122,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _brochures.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (_, idx) {
+                    final b = _brochures[idx];
+                    return GestureDetector(
+                      onTap: () => _openBrochureViewer(b),
+                      child: Container(
+                        width: 224,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFFECE9E2)),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              b['image']?.toString() ?? '',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  Container(color: const Color(0xFFFEE2E2)),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.black.withValues(alpha: 0.72),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 8,
+                              left: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDC2626),
+                                  borderRadius: BorderRadius.circular(100),
+                                ),
+                                child: const Text(
+                                  'Broşür',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: 10,
+                              right: 10,
+                              bottom: 8,
+                              child: Text(
+                                b['title']?.toString() ?? '',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                )),
-          ] else ...[
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
             // Tekli Ürün İndirimleri Sekmesi
             if (_discountPreferences.isNotEmpty) ...[
               _InfoBanner(
@@ -1053,10 +1286,10 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
                   Icon(Icons.star_rounded, color: Colors.amber, size: 28),
                   SizedBox(width: 8),
@@ -1070,23 +1303,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.25),
-                  border: Border.all(color: Colors.amber.shade300, width: 1),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: const Text(
-                  'VIP AVANTAJ',
-                  style: TextStyle(
-                    color: Colors.amber,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 11,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ),
+              SizedBox.shrink(),
             ],
           ),
           const SizedBox(height: 10),
@@ -1654,66 +1871,27 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                     style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.3),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      if (sec['hasTracking'] == true) ...[
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: color),
-                              foregroundColor: color,
-                            ),
-                            icon: const Icon(Icons.verified_outlined, size: 16),
-                            label: const Text('Canlı Sevk Takibi', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-                            onPressed: _openKasaphaneModal,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: color),
-                            foregroundColor: color,
-                          ),
-                          icon: const Icon(Icons.language, size: 16),
-                          label: const Text('Özel Sayfa', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => SubdomainLandingPage(
-                                  subdomainSlug: sub,
-                                  onBackToMain: () => Navigator.of(context).pop(),
-                                  onOpenSanalMarket: () {
-                                    Navigator.of(context).pop();
-                                    setState(() {
-                                      _category = sec['category'] as String;
-                                      _showSanalMarketView = true;
-                                    });
-                                  },
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: color,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: color,
-                            foregroundColor: Colors.white,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _category = sec['category'] as String;
-                              _showSanalMarketView = true;
-                            });
-                          },
-                          child: const Text('Ürünleri İncele', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        ),
+                      icon: const Icon(Icons.shopping_bag_outlined, size: 17),
+                      onPressed: () {
+                        setState(() {
+                          _category = sec['category'] as String;
+                          _showSanalMarketView = true;
+                        });
+                      },
+                      label: const Text(
+                        'Ürünleri İncele',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w800),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -3079,10 +3257,10 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(Icons.star_rounded, color: Colors.amber, size: 24),
                     SizedBox(width: 8),
@@ -3096,23 +3274,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                     ),
                   ],
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: const Text(
-                    'VIP',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 11,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
+                SizedBox.shrink(),
               ],
             ),
             const SizedBox(height: 6),
