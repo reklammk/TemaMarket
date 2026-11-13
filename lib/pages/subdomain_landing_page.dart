@@ -5,7 +5,7 @@ import '../services/api_service.dart';
 import '../widgets/tema_logo_painter.dart';
 
 /// Subdomain üzerinde çalışan dinamik ve sürükle-bırak editörle özelleştirilebilir sayfa
-/// (örn: kasap.temamarket.com, sarkuteri.temamarket.com, mandira.temamarket.com)
+/// (örn: kasap.temasan.com, sarkuteri.temasan.com, mandira.temasan.com)
 class SubdomainLandingPage extends StatefulWidget {
   final String subdomainSlug;
   final Map<String, dynamic>? initialData;
@@ -300,7 +300,7 @@ class _SubdomainLandingPageState extends State<SubdomainLandingPage> {
     final data = widget.initialData ?? _pageData ?? {};
     final title = data['title']?.toString() ?? 'Tema Sayfası';
     final subdomain = data['subdomain']?.toString() ?? widget.subdomainSlug;
-    final domain = data['domain']?.toString() ?? '$subdomain.temamarket.com';
+    final domain = data['domain']?.toString() ?? '$subdomain.temasan.com';
     final brandColor =
         _parseColor(data['color_hex']?.toString(), const Color(0xFFDC2626));
     final sections = SubdomainLandingPage.defaultSectionsFor(data);
@@ -316,7 +316,7 @@ class _SubdomainLandingPageState extends State<SubdomainLandingPage> {
         leading: (!widget.isEditorMode && widget.onBackToMain != null)
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
-                tooltip: 'temamarket.com Ana Sayfasına Dön',
+                tooltip: 'temasan.com Ana Sayfasına Dön',
                 onPressed: widget.onBackToMain,
               )
             : null,
@@ -1152,7 +1152,7 @@ class _SubdomainLandingPageState extends State<SubdomainLandingPage> {
                     border: Border.all(color: Colors.white30),
                   ),
                   child: Text(
-                    '$domain',
+                    domain,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -1246,7 +1246,7 @@ class _SubdomainLandingPageState extends State<SubdomainLandingPage> {
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: const Icon(Icons.home_outlined, size: 20),
-                  label: const Text('temamarket.com Ana Sayfası'),
+                  label: const Text('temasan.com Ana Sayfası'),
                   onPressed: widget.onBackToMain,
                 ),
               ],
@@ -1927,10 +1927,10 @@ class _SubdomainLandingPageState extends State<SubdomainLandingPage> {
   ) {
     final phone = section['phone']?.toString().isNotEmpty == true
         ? section['phone'].toString()
-        : '0850 300 00 00';
+        : '0 (442) 329 06 08';
     final whatsapp = section['whatsapp']?.toString().isNotEmpty == true
         ? section['whatsapp'].toString()
-        : '905300000000';
+        : '904423290608';
 
     return Container(
       padding: const EdgeInsets.all(18),

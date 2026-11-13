@@ -1,11 +1,11 @@
 {
-    "name": "temamarket.com",
-    "short_name": "temamarket.com",
+    "name": "temasan.com",
+    "short_name": "temasan.com",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFFFFF",
     "theme_color": "#DC2626",
-    "description": "temamarket.com - TEMA Market Sanal Market, Tema Kasaphane ve Grup Şirketleri Platformu.",
+    "description": "temasan.com - TEMA Market Sanal Market, Tema Kasaphane ve Grup Şirketleri Platformu.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -12,7 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://temasanalmarket.com/api',
+    defaultValue: 'https://temasan.com/api',
   );
 
   static final String baseUrl = _configuredBaseUrl.endsWith('/')
@@ -581,12 +581,8 @@ class ApiService {
     }
     await _setLocalList(_prefProductsKey, list);
 
-    try {
-      final res = await _request('POST', '/admin/products', body: item);
-      return res['success'] == true;
-    } catch (_) {
-      return true;
-    }
+    final res = await _request('POST', '/admin/products', body: item);
+    return res['success'] == true;
   }
 
   static Future<bool> updateProductStock(int productId, int stock) async {
@@ -597,29 +593,21 @@ class ApiService {
       list[idx]['status'] = stock > 0 ? 'Aktif' : 'Tükendi';
       await _setLocalList(_prefProductsKey, list);
     }
-    try {
-      final response = await _request(
-        'POST',
-        '/products/update-stock',
-        body: {'product_id': productId, 'stock': stock},
-      );
-      return response['success'] == true;
-    } catch (_) {
-      return true;
-    }
+    final response = await _request(
+      'POST',
+      '/products/update-stock',
+      body: {'product_id': productId, 'stock': stock},
+    );
+    return response['success'] == true;
   }
 
   static Future<bool> deleteProduct(int productId) async {
     final list = await _getLocalList(_prefProductsKey, defaultProductsFallback);
     list.removeWhere((e) => _asInt(e['id']) == productId);
     await _setLocalList(_prefProductsKey, list);
-    try {
-      final res = await _request('POST', '/admin/products/delete',
-          body: {'id': productId});
-      return res['success'] == true;
-    } catch (_) {
-      return true;
-    }
+    final res = await _request('POST', '/admin/products/delete',
+        body: {'id': productId});
+    return res['success'] == true;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -667,12 +655,8 @@ class ApiService {
       list.insert(0, item);
     }
     await _setLocalList(_prefCampaignsKey, list);
-    try {
-      final res = await _request('POST', '/admin/campaigns', body: item);
-      return res['success'] == true;
-    } catch (_) {
-      return true;
-    }
+    final res = await _request('POST', '/admin/campaigns', body: item);
+    return res['success'] == true;
   }
 
   static Future<bool> deleteCampaign(int id) async {
@@ -680,13 +664,9 @@ class ApiService {
         await _getLocalList(_prefCampaignsKey, defaultCampaignsFallback);
     list.removeWhere((e) => _asInt(e['id']) == id);
     await _setLocalList(_prefCampaignsKey, list);
-    try {
-      final res =
-          await _request('POST', '/admin/campaigns/delete', body: {'id': id});
-      return res['success'] == true;
-    } catch (_) {
-      return true;
-    }
+    final res =
+        await _request('POST', '/admin/campaigns/delete', body: {'id': id});
+    return res['success'] == true;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -733,25 +713,17 @@ class ApiService {
       list.add(item);
     }
     await _setLocalList(_prefBranchesKey, list);
-    try {
-      final res = await _request('POST', '/admin/branches', body: item);
-      return res['success'] == true;
-    } catch (_) {
-      return true;
-    }
+    final res = await _request('POST', '/admin/branches', body: item);
+    return res['success'] == true;
   }
 
   static Future<bool> deleteBranch(int id) async {
     final list = await _getLocalList(_prefBranchesKey, defaultBranchesFallback);
     list.removeWhere((e) => _asInt(e['id']) == id);
     await _setLocalList(_prefBranchesKey, list);
-    try {
-      final res =
-          await _request('POST', '/admin/branches/delete', body: {'id': id});
-      return res['success'] == true;
-    } catch (_) {
-      return true;
-    }
+    final res =
+        await _request('POST', '/admin/branches/delete', body: {'id': id});
+    return res['success'] == true;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -984,16 +956,12 @@ class ApiService {
       orders[idx]['status'] = status;
       await _setLocalList(_prefOrdersKey, orders);
     }
-    try {
-      final response = await _request(
-        'PATCH',
-        '/orders/$orderId/status',
-        body: {'status': status},
-      );
-      return response['success'] == true;
-    } catch (_) {
-      return true;
-    }
+    final response = await _request(
+      'PATCH',
+      '/orders/$orderId/status',
+      body: {'status': status},
+    );
+    return response['success'] == true;
   }
 
   static Future<bool> assignCourier(
@@ -1024,23 +992,25 @@ class ApiService {
       await _setLocalList(_prefOrdersKey, orders);
     }
 
-    try {
-      final response = await _request(
-        'POST',
-        '/orders/assign-courier',
-        body: {'order_id': orderId, 'courier_id': courierId},
-      );
-      return response['success'] == true;
-    } catch (_) {
-      return true;
-    }
+    final response = await _request(
+      'POST',
+      '/orders/assign-courier',
+      body: {'order_id': orderId, 'courier_id': courierId},
+    );
+    return response['success'] == true;
   }
 
   static Future<bool> deleteOrder(int orderId) async {
-    final orders = await _getLocalList(_prefOrdersKey, defaultOrdersFallback);
-    orders.removeWhere((o) => _asInt(o['id']) == orderId);
-    await _setLocalList(_prefOrdersKey, orders);
-    return true;
+    final res =
+        await _request('POST', '/admin/orders/delete', body: {'id': orderId});
+    if (res['success'] == true) {
+      final orders =
+          await _getLocalList(_prefOrdersKey, defaultOrdersFallback);
+      orders.removeWhere((o) => _asInt(o['id']) == orderId);
+      await _setLocalList(_prefOrdersKey, orders);
+      return true;
+    }
+    return false;
   }
 
   static Future<List<dynamic>> fetchCouriers({int? branchId}) async {
@@ -1069,33 +1039,44 @@ class ApiService {
   }
 
   static Future<bool> saveCourier(Map<String, dynamic> data) async {
-    final list =
-        await _getLocalList(_prefCouriersKey, defaultCouriersFallback);
     final id = _asInt(data['id']);
     final item = <String, dynamic>{
-      'id': id > 0 ? id : DateTime.now().millisecondsSinceEpoch % 100000,
+      if (id > 0) 'id': id,
       'name': data['name']?.toString() ?? 'Yeni Kurye',
-      'phone': data['phone']?.toString() ?? '0530 000 00 00',
-      'status': data['status']?.toString() ?? 'Müsait',
+      'phone': data['phone']?.toString() ?? '',
+      'status': data['status']?.toString() ?? 'AKTIF',
       'branch_id': _asInt(data['branch_id']) > 0 ? _asInt(data['branch_id']) : 1,
       'vehicle': data['vehicle']?.toString() ?? 'Motosiklet',
     };
-    final idx = list.indexWhere((e) => _asInt(e['id']) == _asInt(item['id']));
-    if (idx >= 0) {
-      list[idx] = {...list[idx], ...item};
-    } else {
-      list.add(item);
+    final res = await _request('POST', '/admin/couriers', body: item);
+    if (res['success'] == true) {
+      final list =
+          await _getLocalList(_prefCouriersKey, defaultCouriersFallback);
+      final savedId = _asInt(res['id']) > 0 ? _asInt(res['id']) : id;
+      final cached = {...item, 'id': savedId};
+      final idx = list.indexWhere((e) => _asInt(e['id']) == savedId);
+      if (idx >= 0) {
+        list[idx] = {...list[idx], ...cached};
+      } else {
+        list.add(cached);
+      }
+      await _setLocalList(_prefCouriersKey, list);
+      return true;
     }
-    await _setLocalList(_prefCouriersKey, list);
-    return true;
+    return false;
   }
 
   static Future<bool> deleteCourier(int id) async {
-    final list =
-        await _getLocalList(_prefCouriersKey, defaultCouriersFallback);
-    list.removeWhere((e) => _asInt(e['id']) == id);
-    await _setLocalList(_prefCouriersKey, list);
-    return true;
+    final res =
+        await _request('POST', '/admin/couriers/delete', body: {'id': id});
+    if (res['success'] == true) {
+      final list =
+          await _getLocalList(_prefCouriersKey, defaultCouriersFallback);
+      list.removeWhere((e) => _asInt(e['id']) == id);
+      await _setLocalList(_prefCouriersKey, list);
+      return true;
+    }
+    return false;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -1177,12 +1158,8 @@ class ApiService {
       await prefs.setString(_prefLoyaltyRulesKey, json.encode(rules));
     } catch (_) {}
 
-    try {
-      final response = await _request('PUT', '/loyalty/rules', body: rules);
-      return response['success'] == true;
-    } catch (_) {
-      return true;
-    }
+    final response = await _request('PUT', '/loyalty/rules', body: rules);
+    return response['success'] == true;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -1207,19 +1184,15 @@ class ApiService {
     list.insert(0, newApp);
     await _setLocalList(_prefApplicationsKey, list);
 
-    try {
-      final res = await _request('POST', '/applications', body: data);
-      return _dataMap(res);
-    } catch (_) {
-      return {'success': true, 'message': 'Başvurunuz başarıyla alındı.'};
-    }
+    final res = await _request('POST', '/applications', body: data);
+    return _dataMap(res);
   }
 
   static Future<List<dynamic>> fetchJobApplications() async {
     final local =
         await _getLocalList(_prefApplicationsKey, defaultApplicationsFallback);
     try {
-      final res = await _request('GET', '/admin/applications');
+      final res = await _request('GET', '/admin/external-applications');
       final list = _dataList(res);
       if (list.isNotEmpty) {
         final mapped = list
@@ -1235,40 +1208,59 @@ class ApiService {
 
   static Future<bool> updateJobApplicationStatus(
       int id, String status) async {
-    final list =
-        await _getLocalList(_prefApplicationsKey, defaultApplicationsFallback);
-    final idx = list.indexWhere((e) => _asInt(e['id']) == id);
-    if (idx >= 0) {
-      list[idx]['status'] = status;
-      await _setLocalList(_prefApplicationsKey, list);
-    }
-    try {
-      final res = await _request(
-        'PATCH',
-        '/admin/applications/$id/status',
-        body: {'status': status},
-      );
-      return res['success'] == true;
-    } catch (_) {
+    final res = await _request(
+      'PATCH',
+      '/admin/applications/$id/status',
+      body: {'status': status},
+    );
+    if (res['success'] == true) {
+      final list =
+          await _getLocalList(_prefApplicationsKey, defaultApplicationsFallback);
+      final idx = list.indexWhere((e) => _asInt(e['id']) == id);
+      if (idx >= 0) {
+        list[idx]['status'] = status;
+        await _setLocalList(_prefApplicationsKey, list);
+      }
       return true;
     }
+    return false;
   }
 
   static Future<bool> deleteJobApplication(int id) async {
-    final list =
-        await _getLocalList(_prefApplicationsKey, defaultApplicationsFallback);
-    list.removeWhere((e) => _asInt(e['id']) == id);
-    await _setLocalList(_prefApplicationsKey, list);
-    return true;
+    final res = await _request(
+      'POST',
+      '/admin/external-applications/delete',
+      body: {'id': id},
+    );
+    if (res['success'] == true) {
+      final list =
+          await _getLocalList(_prefApplicationsKey, defaultApplicationsFallback);
+      list.removeWhere((e) => _asInt(e['id']) == id);
+      await _setLocalList(_prefApplicationsKey, list);
+      return true;
+    }
+    return false;
   }
 
   static Future<List<Map<String, dynamic>>> fetchOpenPositions() async {
-    return _getLocalList(_prefPositionsKey, defaultOpenPositionsFallback);
+    final local =
+        await _getLocalList(_prefPositionsKey, defaultOpenPositionsFallback);
+    try {
+      final res = await _request('GET', '/open-positions');
+      final list = _dataList(res);
+      if (list.isNotEmpty) {
+        final mapped = list
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        await _setLocalList(_prefPositionsKey, mapped);
+        return mapped;
+      }
+    } catch (_) {}
+    return local;
   }
 
   static Future<bool> saveOpenPosition(Map<String, dynamic> data) async {
-    final list =
-        await _getLocalList(_prefPositionsKey, defaultOpenPositionsFallback);
     final id = _asInt(data['id']);
     final item = <String, dynamic>{
       'id': id > 0 ? id : DateTime.now().millisecondsSinceEpoch % 1000000,
@@ -1277,22 +1269,33 @@ class ApiService {
       'type': data['type']?.toString() ?? 'Tam Zamanlı',
       'is_active': data['is_active'] ?? true,
     };
-    final idx = list.indexWhere((e) => _asInt(e['id']) == _asInt(item['id']));
-    if (idx >= 0) {
-      list[idx] = {...list[idx], ...item};
-    } else {
-      list.insert(0, item);
+    final res = await _request('POST', '/admin/open-positions', body: item);
+    if (res['success'] == true) {
+      final list =
+          await _getLocalList(_prefPositionsKey, defaultOpenPositionsFallback);
+      final idx = list.indexWhere((e) => _asInt(e['id']) == _asInt(item['id']));
+      if (idx >= 0) {
+        list[idx] = {...list[idx], ...item};
+      } else {
+        list.insert(0, item);
+      }
+      await _setLocalList(_prefPositionsKey, list);
+      return true;
     }
-    await _setLocalList(_prefPositionsKey, list);
-    return true;
+    return false;
   }
 
   static Future<bool> deleteOpenPosition(int id) async {
-    final list =
-        await _getLocalList(_prefPositionsKey, defaultOpenPositionsFallback);
-    list.removeWhere((e) => _asInt(e['id']) == id);
-    await _setLocalList(_prefPositionsKey, list);
-    return true;
+    final res = await _request('POST', '/admin/open-positions/delete',
+        body: {'id': id});
+    if (res['success'] == true) {
+      final list =
+          await _getLocalList(_prefPositionsKey, defaultOpenPositionsFallback);
+      list.removeWhere((e) => _asInt(e['id']) == id);
+      await _setLocalList(_prefPositionsKey, list);
+      return true;
+    }
+    return false;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -1355,42 +1358,57 @@ class ApiService {
   }
 
   static Future<bool> saveKasaphaneTracking(Map<String, dynamic> data) async {
-    final list =
-        await _getLocalList(_prefKasaphaneKey, defaultKasaphaneFallback);
     final normalized = _normalizeKasaphaneRecord(data);
-    final idx =
-        list.indexWhere((e) => _asInt(e['id']) == _asInt(normalized['id']));
-    if (idx >= 0) {
-      list[idx] = normalized;
-    } else {
-      list.insert(0, normalized);
-    }
-    await _setLocalList(_prefKasaphaneKey, list);
-
-    try {
-      final res = await _request('POST', '/admin/kasaphane/tracking',
-          body: normalized);
-      return res['success'] == true;
-    } catch (_) {
+    final res = await _request('POST', '/admin/kasaphane/tracking',
+        body: normalized);
+    if (res['success'] == true) {
+      final list =
+          await _getLocalList(_prefKasaphaneKey, defaultKasaphaneFallback);
+      final idx =
+          list.indexWhere((e) => _asInt(e['id']) == _asInt(normalized['id']));
+      if (idx >= 0) {
+        list[idx] = normalized;
+      } else {
+        list.insert(0, normalized);
+      }
+      await _setLocalList(_prefKasaphaneKey, list);
       return true;
     }
+    return false;
   }
 
   static Future<bool> deleteKasaphaneTracking(int id) async {
-    final list =
-        await _getLocalList(_prefKasaphaneKey, defaultKasaphaneFallback);
-    list.removeWhere((e) => _asInt(e['id']) == id);
-    await _setLocalList(_prefKasaphaneKey, list);
-    return true;
+    final res = await _request('POST', '/admin/kasaphane/tracking/delete',
+        body: {'id': id});
+    if (res['success'] == true) {
+      final list =
+          await _getLocalList(_prefKasaphaneKey, defaultKasaphaneFallback);
+      list.removeWhere((e) => _asInt(e['id']) == id);
+      await _setLocalList(_prefKasaphaneKey, list);
+      return true;
+    }
+    return false;
   }
 
   static Future<List<Map<String, dynamic>>> fetchKasaphaneMedia() async {
-    return _getLocalList(_prefKasaphaneMediaKey, defaultKasaphaneMediaFallback);
+    final local = await _getLocalList(
+        _prefKasaphaneMediaKey, defaultKasaphaneMediaFallback);
+    try {
+      final res = await _request('GET', '/kasaphane/media');
+      final list = _dataList(res);
+      if (list.isNotEmpty) {
+        final mapped = list
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        await _setLocalList(_prefKasaphaneMediaKey, mapped);
+        return mapped;
+      }
+    } catch (_) {}
+    return local;
   }
 
   static Future<bool> saveKasaphaneMedia(Map<String, dynamic> data) async {
-    final list = await _getLocalList(
-        _prefKasaphaneMediaKey, defaultKasaphaneMediaFallback);
     final item = <String, dynamic>{
       'id': _asInt(data['id']) > 0
           ? _asInt(data['id'])
@@ -1401,17 +1419,29 @@ class ApiService {
           'https://images.unsplash.com/photo-1603048588665-791ca8aea617?w=800',
       'created_at': 'Bugün',
     };
-    list.insert(0, item);
-    await _setLocalList(_prefKasaphaneMediaKey, list);
-    return true;
+    final res =
+        await _request('POST', '/admin/kasaphane/media', body: item);
+    if (res['success'] == true) {
+      final list = await _getLocalList(
+          _prefKasaphaneMediaKey, defaultKasaphaneMediaFallback);
+      list.insert(0, item);
+      await _setLocalList(_prefKasaphaneMediaKey, list);
+      return true;
+    }
+    return false;
   }
 
   static Future<bool> deleteKasaphaneMedia(int id) async {
-    final list = await _getLocalList(
-        _prefKasaphaneMediaKey, defaultKasaphaneMediaFallback);
-    list.removeWhere((e) => _asInt(e['id']) == id);
-    await _setLocalList(_prefKasaphaneMediaKey, list);
-    return true;
+    final res = await _request('POST', '/admin/kasaphane/media/delete',
+        body: {'id': id});
+    if (res['success'] == true) {
+      final list = await _getLocalList(
+          _prefKasaphaneMediaKey, defaultKasaphaneMediaFallback);
+      list.removeWhere((e) => _asInt(e['id']) == id);
+      await _setLocalList(_prefKasaphaneMediaKey, list);
+      return true;
+    }
+    return false;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -1447,7 +1477,7 @@ class ApiService {
       'image_url': data['image_url']?.toString() ??
           'https://images.unsplash.com/photo-1541888946425-d0fbb186156a?w=800',
       'description': data['description']?.toString() ?? '',
-      'website': data['website']?.toString() ?? 'https://temamarket.com/insaat',
+      'website': data['website']?.toString() ?? 'https://temasan.com/insaat',
       'contact': data['contact']?.toString() ?? '0442 222 00 00',
     };
     final idx = list.indexWhere((e) => _asInt(e['id']) == _asInt(item['id']));
@@ -1458,27 +1488,22 @@ class ApiService {
     }
     await _setLocalList(_prefCorporateKey, list);
 
-    try {
-      final res =
-          await _request('POST', '/admin/corporate/entities', body: item);
-      return res['success'] == true;
-    } catch (_) {
-      return true;
-    }
+    final res =
+        await _request('POST', '/admin/corporate/entities', body: item);
+    return res['success'] == true;
   }
 
   static Future<bool> deleteCorporateEntity(int id) async {
-    final list = await _getLocalList(
-        _prefCorporateKey, defaultCorporateEntitiesFallback);
-    list.removeWhere((e) => _asInt(e['id']) == id);
-    await _setLocalList(_prefCorporateKey, list);
-    try {
-      final res = await _request('POST', '/admin/corporate/entities/delete',
-          body: {'id': id});
-      return res['success'] == true;
-    } catch (_) {
+    final res = await _request('POST', '/admin/corporate/entities/delete',
+        body: {'id': id});
+    if (res['success'] == true) {
+      final list = await _getLocalList(
+          _prefCorporateKey, defaultCorporateEntitiesFallback);
+      list.removeWhere((e) => _asInt(e['id']) == id);
+      await _setLocalList(_prefCorporateKey, list);
       return true;
     }
+    return false;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -1488,7 +1513,7 @@ class ApiService {
     final local =
         await _getLocalList(_prefSubdomainsKey, defaultSubdomainPages);
     try {
-      final res = await _request('GET', '/admin/subdomains');
+      final res = await _request('GET', '/subdomains');
       final list = _dataList(res);
       if (list.isNotEmpty) {
         final mapped = list
@@ -1513,7 +1538,7 @@ class ApiService {
       ...data,
       'id': id > 0 ? id : DateTime.now().millisecondsSinceEpoch % 1000000,
       'subdomain': sub,
-      'domain': '$sub.temamarket.com',
+      'domain': '$sub.temasan.com',
     };
 
     final idx = list.indexWhere((e) =>
@@ -1526,24 +1551,29 @@ class ApiService {
     }
     await _setLocalList(_prefSubdomainsKey, list);
 
-    try {
-      final res = await _request('POST', '/admin/subdomains', body: item);
-      return res['success'] == true;
-    } catch (_) {
-      return true;
-    }
+    final res = await _request('POST', '/admin/subdomains', body: item);
+    return res['success'] == true;
   }
 
   static Future<bool> deleteSubdomainPage(int id) async {
-    final list = await _getLocalList(_prefSubdomainsKey, defaultSubdomainPages);
-    list.removeWhere((e) => _asInt(e['id']) == id);
-    await _setLocalList(_prefSubdomainsKey, list);
-    try {
-      final res = await _request('POST', '/admin/subdomains/delete',
-          body: {'id': id});
-      return res['success'] == true;
-    } catch (_) {
+    final res = await _request('POST', '/admin/subdomains/delete',
+        body: {'id': id});
+    if (res['success'] == true) {
+      final list =
+          await _getLocalList(_prefSubdomainsKey, defaultSubdomainPages);
+      list.removeWhere((e) => _asInt(e['id']) == id);
+      await _setLocalList(_prefSubdomainsKey, list);
       return true;
+    }
+    return false;
+  }
+
+  static Future<List<dynamic>> fetchBrochures() async {
+    try {
+      final res = await _request('GET', '/brochures');
+      return _dataList(res);
+    } catch (_) {
+      return [];
     }
   }
 
@@ -1555,7 +1585,7 @@ class ApiService {
       'id': 1,
       'title': 'Tema Kasaphane',
       'subdomain': 'kasap',
-      'domain': 'kasap.temamarket.com',
+      'domain': 'kasap.temasan.com',
       'category': 'Tema Kasaphane',
       'slogan': 'Veteriner Hekim Onaylı, Çiftlikten Şubelere Canlı Sevk Takibi',
       'description':
@@ -1606,7 +1636,7 @@ class ApiService {
       'id': 2,
       'title': 'Tema Şarküteri',
       'subdomain': 'sarkuteri',
-      'domain': 'sarkuteri.temamarket.com',
+      'domain': 'sarkuteri.temasan.com',
       'category': 'Şarküteri',
       'slogan': 'Yöresel ve Gurme Şarküteri Lezzetleri',
       'description':
@@ -1624,7 +1654,7 @@ class ApiService {
       'id': 3,
       'title': 'Tema Mandıra',
       'subdomain': 'mandira',
-      'domain': 'mandira.temamarket.com',
+      'domain': 'mandira.temasan.com',
       'category': 'Tema Mandıra',
       'slogan': 'Doğal Köy Sütü, Peynirleri ve Yayık Tereyağı',
       'description':
@@ -1642,7 +1672,7 @@ class ApiService {
       'id': 4,
       'title': 'Tema Fırın',
       'subdomain': 'firin',
-      'domain': 'firin.temamarket.com',
+      'domain': 'firin.temasan.com',
       'category': 'Tema Fırın',
       'slogan': 'Taş Fırından Taptaze Ekmek & Sıcak Unlu Mamuller',
       'description':
@@ -1660,7 +1690,7 @@ class ApiService {
       'id': 5,
       'title': 'Tema Bakliyat',
       'subdomain': 'bakliyat',
-      'domain': 'bakliyat.temamarket.com',
+      'domain': 'bakliyat.temasan.com',
       'category': 'Tema Bakliyat',
       'slogan': 'Bereketli Anadolu Topraklarından Sofranıza',
       'description':
@@ -1678,7 +1708,7 @@ class ApiService {
       'id': 6,
       'title': 'Tema İnşaat',
       'subdomain': 'insaat',
-      'domain': 'insaat.temamarket.com',
+      'domain': 'insaat.temasan.com',
       'category': 'Tema İnşaat',
       'slogan': 'Modern Konut ve Güvenli Yaşam Alanları',
       'description':
@@ -1756,7 +1786,7 @@ class ApiService {
           'https://images.unsplash.com/photo-1541888946425-d0fbb186156a?w=800',
       'description':
           'Erzurum Aziziye mevkiinde 120 daireli lüks ve depreme dayanıklı modern konut projesi.',
-      'website': 'https://insaat.temamarket.com',
+      'website': 'https://insaat.temasan.com',
       'contact': '0442 222 00 00',
     },
     {
@@ -1768,7 +1798,7 @@ class ApiService {
           'https://images.unsplash.com/photo-1603048588665-791ca8aea617?w=800',
       'description':
           'Yerli besi, veteriner gözetiminde hijyenik kesim ve şubelere günlük sevkiyat.',
-      'website': 'https://kasap.temamarket.com',
+      'website': 'https://kasap.temasan.com',
       'contact': '0442 222 00 01',
     },
   ];

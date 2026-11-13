@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tema_market/pages/auth_page.dart';
 import 'package:tema_market/pages/splash_screen_page.dart';
+import 'package:tema_market/services/api_service.dart';
 import 'package:tema_market/services/feature_flags_service.dart';
 import 'package:tema_market/utils/customer_profile_utils.dart';
 
@@ -54,6 +55,7 @@ void main() {
     expect(checkboxes, isNotEmpty);
     expect(checkboxes.every((checkbox) => checkbox.value == false), isTrue);
     expect(find.textContaining('123987'), findsNothing);
+    expect(find.textContaining('123456'), findsNothing);
   });
 
   testWidgets('login navbar opens the selected storefront tab', (tester) async {
@@ -123,5 +125,13 @@ void main() {
     expect(points, 250);
     expect(value, 25.0);
     expect((data['history'] as List).length, 1);
+  });
+
+  test('ApiService varsayılan üretim API adresi HTTPS temasan.com kullanır', () {
+    expect(ApiService.baseUrl, startsWith('https://temasan.com'));
+  });
+
+  test('Tema Avantaj Kart numarası 9999999 + 10 hane üretir', () {
+    expect(temaAvantajCardNumber('+90 555 123 45 67'), '99999995551234567');
   });
 }

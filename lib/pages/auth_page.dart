@@ -25,7 +25,7 @@ class AuthPage extends StatefulWidget {
 class _AuthPageState extends State<AuthPage> {
   static const bool _staffLoginEnabled = bool.fromEnvironment(
     'ENABLE_STAFF_LOGIN',
-    defaultValue: true,
+    defaultValue: false,
   );
 
   late String _selectedRole;
@@ -61,7 +61,7 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Future<void> _openPrivacyPolicy() async {
-    final uri = Uri.parse('https://temamarket.com/kvkk');
+    final uri = Uri.parse('https://temasan.com/kvkk');
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
         mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -102,22 +102,21 @@ class _AuthPageState extends State<AuthPage> {
       if (mounted) _showOtpModal();
     } catch (error) {
       if (mounted) {
-        // SMS servisi geciktiğinde kullanıcıyı engellemeden hızlı giriş desteği sun
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-                'SMS gönderiminde gecikme yaşanabilir. Hızlı giriş için 123456 kodunu kullanabilirsiniz.'),
-            backgroundColor: Color(0xFFDC2626),
+              error.toString().replaceAll('ApiException(200): ', ''),
+            ),
+            backgroundColor: const Color(0xFFDC2626),
           ),
         );
-        _showOtpModal(serviceNotice: true);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _showOtpModal({bool serviceNotice = false}) {
+  void _showOtpModal() {
     final otpController = TextEditingController();
     bool verifying = false;
     String? errorText;
@@ -146,39 +145,14 @@ class _AuthPageState extends State<AuthPage> {
                   throw const ApiException('Telefon numarası geçersiz.');
                 }
 
-                Map<String, dynamic> user;
-                try {
-                  final res = await ApiService.verifyOtp(
-                    phone,
-                    code,
-                    expectedRole: _selectedRole,
-                  );
-                  final Map<String, dynamic> rawUser = res['user'] ?? res;
-                  user = Map<String, dynamic>.from(rawUser);
-                } catch (apiError) {
-                  // SMS doğrulama servis hatası veya geliştirici/test kodu (123456 vb.) durumunda kesintisiz devam et
-                  if (code.length == 6) {
-                    final cardNo = temaAvantajCardNumber(phone);
-                    final enteredName = _nameController.text.trim();
-                    user = <String, dynamic>{
-                      'id': DateTime.now().millisecondsSinceEpoch % 1000000,
-                      'phone': phone,
-                      'name': enteredName.isNotEmpty
-                          ? enteredName
-                          : 'Tema Avantaj Müşterisi',
-                      'role': _selectedRole,
-                      'tema_card_number': cardNo,
-                      'points': 100,
-                      'tl_equivalent': 10.0,
-                    };
-                    await ApiService.saveAuthSession(
-                      'token-$cardNo-${DateTime.now().millisecondsSinceEpoch}',
-                      user,
-                    );
-                  } else {
-                    rethrow;
-                  }
-                }
+                final res = await ApiService.verifyOtp(
+                  phone,
+                  code,
+                  expectedRole: _selectedRole,
+                );
+                final Map<String, dynamic> rawUser = res['user'] ?? res;
+                final Map<String, dynamic> user =
+                    Map<String, dynamic>.from(rawUser);
 
                 // 17 haneli Tema Avantaj Kart Numarasını iliştir
                 user['tema_card_number'] ??= temaAvantajCardNumber(phone);
@@ -240,24 +214,7 @@ class _AuthPageState extends State<AuthPage> {
                         style: const TextStyle(
                             fontSize: 13, color: Color(0xFF64748B)),
                       ),
-                      if (serviceNotice) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            'SMS gecikirse hızlı giriş kodu: 123456',
-                            style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF92400E)),
-                          ),
-                        ),
-                      ],
+
                       const SizedBox(height: 20),
                       TextField(
                         controller: otpController,
@@ -301,17 +258,7 @@ class _AuthPageState extends State<AuthPage> {
                               fontWeight: FontWeight.bold),
                         ),
                       ],
-                      const SizedBox(height: 12),
-                      TextButton.icon(
-                        icon: const Icon(Icons.flash_on_rounded, size: 16),
-                        label: const Text('SMS Gelmedi mi? Hızlı Giriş (123456)'),
-                        onPressed: verifying
-                            ? null
-                            : () {
-                                otpController.text = '123456';
-                                verify();
-                              },
-                      ),
+
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
@@ -371,75 +318,72 @@ class _AuthPageState extends State<AuthPage> {
       {'id': 4, 'icon': Icons.person_rounded, 'label': 'Hesabım'},
     ];
 
-    return SafeArea(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        height: 64,
-        decoration: BoxDecoration(
-          color: const Color(0xAA140A10),
-          borderRadius: BorderRadius.circular(100),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 24,
-              spreadRadius: 2,
-              offset: const Offset(0, 10),
-            ),
-          ],
-          border: Border.all(
-              color: Colors.white.withValues(alpha: 0.2), width: 1.5),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: navItems.map((item) {
-            final int id = item['id'] as int;
-            final bool isSelected = id == 4; // Hesabım sayfasındayız
-            final IconData icon = item['icon'] as IconData;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xFFECE9E2))),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 18,
+            offset: Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: navItems.map((item) {
+              final int id = item['id'] as int;
+              final bool isSelected = id == 4;
+              final IconData icon = item['icon'] as IconData;
+              final String label = item['label'] as String;
 
-            if (isSelected) {
-              return GestureDetector(
-                onTap: () => _onNavTap(id),
-                child: Container(
-                  width: 46,
-                  height: 46,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.white24,
-                        blurRadius: 8,
-                        spreadRadius: 1,
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Material(
+                  color: isSelected
+                      ? const Color(0xFFDC2626)
+                      : const Color(0xFFF3F1EC),
+                  borderRadius: BorderRadius.circular(100),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(100),
+                    onTap: () => _onNavTap(id),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            icon,
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF334155),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            label,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? Colors.white
+                                  : const Color(0xFF1E293B),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Icon(
-                      icon,
-                      color: const Color(0xFFDC2626),
-                      size: 22,
                     ),
                   ),
                 ),
               );
-            }
-
-            return GestureDetector(
-              onTap: () => _onNavTap(id),
-              child: SizedBox(
-                width: 44,
-                height: 44,
-                child: Center(
-                  child: Icon(
-                    icon,
-                    color: Colors.white70,
-                    size: 22,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
+            }).toList(),
+          ),
         ),
       ),
     );
@@ -448,69 +392,71 @@ class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFFAF8F5),
       bottomNavigationBar: _buildFloatingNavbar(context),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12.0),
           child: Column(
             children: [
-              const SizedBox(height: 12),
-              // Görsel 1: TEMA Capsule Glow Badge + Red Market Text Logo
-              // Logo: Yıldızlı TEMA Rozeti + market.com
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFF2A55), Color(0xFFDC2626)],
+              // Maia Suites / Gem Event tarzı yüzen pill üst bar + resmi TEMA logosu
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFECE9E2)),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x0F000000),
+                      blurRadius: 16,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Image.asset(
+                      'assets/logo.png',
+                      height: 34,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Text(
+                        'TEMA MARKET',
+                        style: TextStyle(
+                          color: Color(0xFFDC2626),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(100),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              const Color(0xFFDC2626).withValues(alpha: 0.45),
-                          blurRadius: 14,
-                          spreadRadius: 1,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
                     ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.star_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'TEMA',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 20,
-                            letterSpacing: 1.2,
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEE2E2),
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.verified_user_rounded,
+                              color: Color(0xFFDC2626), size: 15),
+                          SizedBox(width: 5),
+                          Text(
+                            'Üye Girişi',
+                            style: TextStyle(
+                              color: Color(0xFFDC2626),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'market.com',
-                    style: TextStyle(
-                      color: Color(0xFFDC2626),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 18),
               // Tema Avantaj Kart Teşvik Kartı

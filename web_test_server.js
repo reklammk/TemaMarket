@@ -14,7 +14,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = 3000;
-const API_TARGET = 'temasanalmarket.com';
+const API_TARGET = 'temasan.com';
 const WEB_DIST = path.join(__dirname, 'web_dist');
 const DB_PATH = path.join(__dirname, 'server_db.json');
 

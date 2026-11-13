@@ -114,6 +114,8 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
   List<Map<String, dynamic>> _maps(List<dynamic> list) =>
       list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
 
+  List<Map<String, dynamic>> _brochures =
+      List<Map<String, dynamic>>.from(_defaultBrochures);
   List<Map<String, dynamic>> _customerAddresses = [];
   List<Map<String, dynamic>> _customerOrders = [];
   Map<String, dynamic>? _loyaltyData;
@@ -159,14 +161,34 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         ApiService.fetchBranches(),
         ApiService.fetchCampaigns(),
         ApiService.fetchSubdomainPages(),
+        ApiService.fetchBrochures(),
       ]);
       if (!mounted) return;
       final branches = _maps(result[1] as List<dynamic>);
+      final remoteBrochures = _maps(result[4] as List<dynamic>).map((b) {
+        final start = b['start_date']?.toString() ?? '';
+        final end = b['end_date']?.toString() ?? '';
+        final dates = (b['dates']?.toString().isNotEmpty == true)
+            ? b['dates'].toString()
+            : (start.isNotEmpty && end.isNotEmpty
+                ? '$start - $end'
+                : 'Aktüel Fırsatlar');
+        return {
+          ...b,
+          'image': (b['image_url']?.toString().isNotEmpty == true)
+              ? b['image_url']
+              : (b['image'] ?? ''),
+          'dates': dates,
+        };
+      }).toList();
       setState(() {
         _flags = result[0] as FeatureFlags;
         _branches = branches;
         _campaigns = _maps(result[2] as List<dynamic>);
         _subdomainPages = _maps(result[3] as List<dynamic>);
+        if (remoteBrochures.isNotEmpty) {
+          _brochures = remoteBrochures;
+        }
         _branchId ??= branches.isEmpty ? null : _int(branches.first['id']);
       });
       await _loadProducts();
@@ -387,29 +409,101 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
     await _loadProducts();
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          title: HeaderTemaLogo(isSanalMarket: _showSanalMarketView),
-          actions: [
-            if (widget.onOpenAdmin != null)
+  Widget _floatingTopHeader() {
+    return SafeArea(
+      bottom: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFECE9E2)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F000000),
+              blurRadius: 16,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: HeaderTemaLogo(isSanalMarket: _showSanalMarketView),
+              ),
+            ),
+            InkWell(
+              borderRadius: BorderRadius.circular(100),
+              onTap: () => setState(() {
+                _tab = 0;
+                _showSanalMarketView = !_showSanalMarketView;
+              }),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEE2E2),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _showSanalMarketView
+                          ? Icons.storefront_rounded
+                          : Icons.shopping_bag_rounded,
+                      color: const Color(0xFFDC2626),
+                      size: 15,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      _showSanalMarketView ? 'Vitrin' : 'Sanal Market',
+                      style: const TextStyle(
+                        color: Color(0xFFDC2626),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (widget.onOpenAdmin != null) ...[
+              const SizedBox(width: 6),
               IconButton(
                 tooltip: 'Yönetici Paneli',
+                visualDensity: VisualDensity.compact,
                 icon: const Icon(Icons.admin_panel_settings_outlined,
                     color: Color(0xFFDC2626)),
                 onPressed: widget.onOpenAdmin,
               ),
+            ],
+            const SizedBox(width: 2),
             IconButton(
               tooltip: 'Yenile',
+              visualDensity: VisualDensity.compact,
               onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh_rounded,
+                  color: Color(0xFF334155)),
             ),
           ],
         ),
-        body: _currentTabBody(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: const Color(0xFFFAF8F5),
+        body: Column(
+          children: [
+            _floatingTopHeader(),
+            Expanded(child: _currentTabBody()),
+          ],
+        ),
         bottomNavigationBar: _floatingNavbar(),
       );
 
@@ -460,58 +554,79 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
       (id: 4, icon: Icons.person_rounded, label: 'Hesabım'),
     ];
 
-    return SafeArea(
-      child: Container(
-        height: 64,
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xDD211E22),
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: Colors.white24, width: 1.5),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x4D000000),
-              blurRadius: 24,
-              spreadRadius: 2,
-              offset: Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: navItems.map((item) {
-            final selected = _tab == item.id;
-            Widget icon = Icon(
-              item.icon,
-              color: selected ? const Color(0xFFDC2626) : Colors.white70,
-              size: 22,
-            );
-            if (item.id == 2 && _flags.sanalMarket && _cartCount > 0) {
-              icon = Badge(label: Text('$_cartCount'), child: icon);
-            }
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xFFECE9E2))),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 18,
+            offset: Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: navItems.map((item) {
+              final selected = _tab == item.id;
+              Widget icon = Icon(
+                item.icon,
+                color: selected ? Colors.white : const Color(0xFF334155),
+                size: 18,
+              );
+              if (item.id == 2 && _flags.sanalMarket && _cartCount > 0) {
+                icon = Badge(label: Text('$_cartCount'), child: icon);
+              }
 
-            return Tooltip(
-              message: item.label,
-              child: Semantics(
-                button: true,
-                selected: selected,
-                label: item.label,
-                child: Material(
-                  color: selected ? Colors.white : Colors.transparent,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () => _handleNavTap(item.id),
-                    child: SizedBox.square(
-                      dimension: selected ? 46 : 44,
-                      child: Center(child: icon),
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Tooltip(
+                  message: item.label,
+                  child: Semantics(
+                    button: true,
+                    selected: selected,
+                    label: item.label,
+                    child: Material(
+                      color: selected
+                          ? const Color(0xFFDC2626)
+                          : const Color(0xFFF3F1EC),
+                      borderRadius: BorderRadius.circular(100),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(100),
+                        onTap: () => _handleNavTap(item.id),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              icon,
+                              const SizedBox(width: 6),
+                              Text(
+                                item.label,
+                                style: TextStyle(
+                                  color: selected
+                                      ? Colors.white
+                                      : const Color(0xFF1E293B),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            }).toList(),
+          ),
         ),
       ),
     );
@@ -702,7 +817,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
           const SizedBox(height: 14),
           if (_campaignTab == 1) ...[
             // Aktüel Broşürler Sekmesi
-            ..._defaultBrochures.map((brochure) => Card(
+            ..._brochures.map((brochure) => Card(
                   margin: const EdgeInsets.only(bottom: 14),
                   clipBehavior: Clip.antiAlias,
                   child: Column(
@@ -1247,10 +1362,10 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
           height: 250,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: _defaultBrochures.length,
+            itemCount: _brochures.length,
             separatorBuilder: (_, __) => const SizedBox(width: 14),
             itemBuilder: (_, index) {
-              final brochure = _defaultBrochures[index];
+              final brochure = _brochures[index];
               return Container(
                 width: 240,
                 decoration: BoxDecoration(
@@ -1511,7 +1626,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                                         Icon(Icons.open_in_new, size: 12, color: color),
                                         const SizedBox(width: 4),
                                         Text(
-                                          '$sub.temamarket.com',
+                                          '$sub.temasan.com',
                                           style: TextStyle(
                                             color: color,
                                             fontSize: 11,
@@ -1708,7 +1823,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.Border.all(color: const Color(0xFFF1F5F9)),
+                border: Border.all(color: const Color(0xFFF1F5F9)),
               ),
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1993,58 +2108,90 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
 
   Widget _homeFooterInfo() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFECE9E2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.star, color: Color(0xFFDC2626), size: 20),
-              SizedBox(width: 6),
-              Text(
-                'temamarket.com',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A)),
+              Image.asset(
+                'assets/logo.png',
+                height: 28,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.star_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'temasan.com',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Erzurum geneli geniş şube ağımız, Tema Kasaphane, Tema Mandıra, Tema Fırın ve Sanal Market hizmetimizle sofralarınıza tazelik ve bereket taşıyoruz.',
+            style:
+                TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.35),
+          ),
+          const Divider(height: 22),
+          const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.location_on_outlined,
+                  size: 16, color: Color(0xFFDC2626)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Gezköy Osb Mah. 3. Sanayi Cad. No:5 Aziziye / Erzurum',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Erzurum geneli geniş şube ağımız, Tema Kasaphane, Tema Mandıra, Tema Fırın ve Sanal Market hizmetimizle sofralarınıza tazelik ve bereket taşıyoruz.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.3),
-          ),
-          const Divider(height: 20),
           const Row(
             children: [
-              Icon(Icons.headset_mic_outlined, size: 16, color: Color(0xFFDC2626)),
-              SizedBox(width: 6),
-              Text('Müşteri Hizmetleri: 0850 300 00 00', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              Icon(Icons.phone_outlined, size: 16, color: Color(0xFFDC2626)),
+              SizedBox(width: 8),
+              Text('0 (442) 329 06 08',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           const Row(
             children: [
-              Icon(Icons.chat_outlined, size: 16, color: Colors.green),
-              SizedBox(width: 6),
-              Text('WhatsApp Destek: 0530 000 00 00', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              Icon(Icons.email_outlined, size: 16, color: Color(0xFFDC2626)),
+              SizedBox(width: 8),
+              Text('musteri.iletisim@temasan.com',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           const Row(
             children: [
               Icon(Icons.public_outlined, size: 16, color: Color(0xFF2563EB)),
-              SizedBox(width: 6),
-              Text('Web: https://temamarket.com', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              SizedBox(width: 8),
+              Text('Web: https://temasan.com',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           const Center(
             child: Text(
-              '© 2026 temamarket.com - Tüm Hakları Saklıdır.',
+              '© 2026 temasan.com - Tüm Hakları Saklıdır.',
               style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
             ),
           ),
@@ -2571,7 +2718,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
         leading: const Icon(Icons.privacy_tip_outlined),
         title: const Text('KVKK ve gizlilik metni'),
         trailing: const Icon(Icons.open_in_new),
-        onTap: () => launchUrl(Uri.parse('https://temamarket.com/kvkk'),
+        onTap: () => launchUrl(Uri.parse('https://temasan.com/kvkk'),
             mode: LaunchMode.externalApplication),
       ),
       if (widget.onOpenAdmin != null)
@@ -3448,7 +3595,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedPosition,
+                  initialValue: selectedPosition,
                   decoration: const InputDecoration(labelText: 'Başvurulan Pozisyon *', prefixIcon: Icon(Icons.badge_outlined)),
                   items: positions.map((pos) => DropdownMenuItem(value: pos, child: Text(pos, style: const TextStyle(fontSize: 13)))).toList(),
                   onChanged: (val) {
@@ -3457,7 +3604,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedBranch,
+                  initialValue: selectedBranch,
                   decoration: const InputDecoration(labelText: 'Tercih Edilen Şube', prefixIcon: Icon(Icons.store_outlined)),
                   items: [
                     ..._branches.map((b) => DropdownMenuItem(value: b['name']?.toString() ?? 'Şube', child: Text(b['name']?.toString() ?? 'Şube', style: const TextStyle(fontSize: 13)))),
@@ -3534,7 +3681,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => FutureBuilder<List<Map<String, dynamic>>>(
+      builder: (ctx) => FutureBuilder<List<dynamic>>(
         future: ApiService.fetchKasaphaneTracking(),
         builder: (ctx, snapshot) {
           final items = snapshot.data ?? [];
@@ -3640,7 +3787,7 @@ class _CustomerStorefrontPageState extends State<CustomerStorefrontPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => FutureBuilder<List<Map<String, dynamic>>>(
+      builder: (ctx) => FutureBuilder<List<dynamic>>(
         future: ApiService.fetchCorporateEntities(),
         builder: (ctx, snapshot) {
           final entities = snapshot.data ?? [];

@@ -60,7 +60,7 @@ class _TemasanAppState extends State<TemasanApp> {
         return;
       }
       final host = Uri.base.host.toLowerCase();
-      if (host.contains('temamarket.com') &&
+      if ((host.contains('temasan.com') || host.contains('temamarket.com')) &&
           host != 'temamarket.com' &&
           host != 'www.temamarket.com') {
         final parts = host.split('.');
@@ -134,7 +134,7 @@ class _TemasanAppState extends State<TemasanApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'temamarket.com',
+      title: 'temasan.com',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -146,9 +146,9 @@ class _TemasanAppState extends State<TemasanApp> {
           onSecondary: Colors.white,
           surface: Colors.white,
           onSurface: const Color(0xFF0F172A),
-          surfaceContainerHighest: const Color(0xFFF8FAFC),
+          surfaceContainerHighest: const Color(0xFFF3F1EC),
         ),
-        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+        scaffoldBackgroundColor: const Color(0xFFFAF8F5),
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.white,
           foregroundColor: Color(0xFF0F172A),
@@ -216,8 +216,8 @@ class _TemasanAppState extends State<TemasanApp> {
           color: Colors.white,
           surfaceTintColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Color(0xFFF1F5F9)),
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: Color(0xFFECE9E2)),
           ),
         ),
         dividerTheme:

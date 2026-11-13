@@ -198,6 +198,21 @@ if ($isMySQL) {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+    CREATE TABLE IF NOT EXISTS otp_rate_limits (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        ip_address VARCHAR(64) NOT NULL,
+        phone VARCHAR(30) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_otp_rate_ip (ip_address, created_at),
+        INDEX idx_otp_rate_phone (phone, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    CREATE TABLE IF NOT EXISTS cms_documents (
+        doc_key VARCHAR(100) PRIMARY KEY,
+        payload_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
     CREATE TABLE IF NOT EXISTS categories (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -389,6 +404,19 @@ if ($isMySQL) {
         status TEXT DEFAULT 'Başarılı (NETGSM İletildi)',
         sent_count INTEGER DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS otp_rate_limits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ip_address TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS cms_documents (
+        doc_key TEXT PRIMARY KEY,
+        payload_json TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS categories (
@@ -631,7 +659,8 @@ function seedUser($pdo, $phone, $role, $name, $company = null, $city = null, $ve
     }
 }
 
-if ((getenv('SEED_DEMO_DATA') ?: 'false') === 'true') {
+$seedDemoEnabled = in_array(strtolower(trim((string)(getenv('SEED_DEMO_DATA') ?: 'false'))), ['true', '1'], true);
+if ($seedDemoEnabled) {
     seedUser($pdo, '+905550000000', 'SuperAdmin', 'Sistem Yöneticisi');
     seedUser($pdo, '+905551234567', 'Customer', 'Test Müşteri');
     seedUser($pdo, '+905559991122', 'Courier', 'Test Kurye', null, null, 'Motosiklet');
@@ -691,7 +720,7 @@ foreach ($branchesSeed as $index => $b) {
 }
 
 // Örnek ticari veriler production ortamında otomatik oluşturulmaz.
-if ((getenv('SEED_DEMO_DATA') ?: 'false') === 'true') {
+if ($seedDemoEnabled) {
   // Kampanyalar Tohumlama
   $stmt = $pdo->query("SELECT COUNT(*) FROM campaigns");
   if ($stmt->fetchColumn() == 0) {
@@ -704,8 +733,7 @@ if ((getenv('SEED_DEMO_DATA') ?: 'false') === 'true') {
 
   $stmt = $pdo->query("SELECT COUNT(*) FROM products");
   $productCount = (int)$stmt->fetchColumn();
-  $seedDemo = getenv('SEED_DEMO_DATA') === '1';
-  if ($productCount === 0 && $seedDemo) {
+  if ($productCount === 0 && $seedDemoEnabled) {
     $pdo->exec("INSERT INTO products (name, category, sub_brand, barcode, base_price, original_price, stock, status, image, unit) VALUES
     ('Beypiliç Baget 1 Kg', 'Et & Tavuk & Balık', 'Kasap', '8690000100001', 79.99, 89.99, 50, 'Stokta', 'https://images.unsplash.com/photo-1587593810167-a84920ea0781?auto=format&fit=crop&w=400&q=80', 'Kg'),
     ('Beypiliç Bütün 1 Kg', 'Et & Tavuk & Balık', 'Kasap', '8690000100002', 99.99, 119.90, 50, 'Stokta', 'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=400&q=80', 'Kg'),

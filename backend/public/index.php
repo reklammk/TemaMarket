@@ -3,16 +3,35 @@ $appEnv = getenv('APP_ENV') ?: 'production';
 error_reporting(E_ALL);
 ini_set('display_errors', $appEnv === 'development' ? '1' : '0');
 
-$requestOrigin = $_SERVER['HTTP_ORIGIN'] ?? '';
+function isAllowedCorsOrigin($origin, $appEnv) {
+    if ($origin === '') return false;
+    $rawAllowed = getenv('APP_ALLOWED_ORIGINS') ?: 'https://temasan.com,https://www.temasan.com,https://temamarket.com,https://www.temamarket.com,https://temasanalmarket.com,https://www.temasanalmarket.com';
+    $allowedList = array_filter(array_map('trim', explode(',', $rawAllowed)));
+    if (in_array($origin, $allowedList, true)) {
+        return true;
+    }
+    if (preg_match('#^https://[a-z0-9-]+.(temasan|temamarket).com$#i', $origin)) {
+        return true;
+    }
+    if ($appEnv === 'development' && preg_match('#^http://(localhost|127.0.0.1)(:d+)?$#i', $origin)) {
+        return true;
+    }
+    return false;
+}
+
+$requestOrigin = trim((string)($_SERVER['HTTP_ORIGIN'] ?? ''));
 if ($requestOrigin !== '') {
-    header('Access-Control-Allow-Origin: ' . $requestOrigin);
-    header('Access-Control-Allow-Credentials: true');
-    header('Vary: Origin');
-} else {
-    header('Access-Control-Allow-Origin: *');
+    if (isAllowedCorsOrigin($requestOrigin, $appEnv)) {
+        header('Access-Control-Allow-Origin: ' . $requestOrigin);
+        header('Access-Control-Allow-Credentials: true');
+        header('Vary: Origin');
+    }
 }
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Idempotency-Key');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: strict-origin-when-cross-origin');
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
@@ -137,10 +156,14 @@ function sendTurkTelekomSms($phone, $message, $ttSettings = null) {
     $tokenSonuc = strval($tokenDoc['sonuc'] ?? '');
 
     if (!$accessToken || str_contains($tokenRes, 'IP tanimli degil') || $tokenSonuc === '2') {
+        $isIpBlocked = str_contains($tokenRes, 'IP tanimli degil');
+        error_log('Turk Telekom token error: http=' . $tokenHttpCode . ' sonuc=' . $tokenSonuc . ' ip_blocked=' . ($isIpBlocked ? '1' : '0') . ($curlErr !== '' ? ' curl=' . $curlErr : ''));
         return [
             'success' => false,
             'provider' => 'Türk Telekom REST API',
-            'message' => $curlErr !== '' ? 'SMS sağlayıcısına bağlanılamadı.' : 'SMS sağlayıcısı token vermedi.',
+            'message' => $isIpBlocked
+                ? 'SMS sağlayıcısı bu sunucu IP adresine izin vermiyor (Türk Telekom IP kısıtı).'
+                : ($curlErr !== '' ? 'SMS sağlayıcısına bağlanılamadı.' : 'SMS sağlayıcısı token vermedi.'),
         ];
     }
 
@@ -177,10 +200,14 @@ function sendTurkTelekomSms($phone, $message, $ttSettings = null) {
     $isSuccess = ($smsHttpCode >= 200 && $smsHttpCode < 300) && (!str_contains($smsRes, 'IP tanimli degil')) && ($smsSonuc === '0' || $smsSonuc === '1' || empty($smsSonuc));
 
     if (!$isSuccess) {
+        $isIpBlocked = str_contains($smsRes, 'IP tanimli degil');
+        error_log('Turk Telekom SendSingle rejected: http=' . $smsHttpCode . ' sonuc=' . $smsSonuc . ' ip_blocked=' . ($isIpBlocked ? '1' : '0'));
         return [
             'success' => false,
             'provider' => 'Türk Telekom REST API',
-            'message' => 'SMS sağlayıcısı gönderimi reddetti.',
+            'message' => $isIpBlocked
+                ? 'SMS sağlayıcısı bu sunucu IP adresine izin vermiyor (Türk Telekom IP kısıtı).'
+                : 'SMS sağlayıcısı gönderimi reddetti.',
         ];
     }
 
@@ -289,17 +316,32 @@ function sendSmsViaActiveProvider($phone, $message, $pdo) {
         return $res ?? ['success' => false, 'provider' => 'NETGSM', 'message' => 'NETGSM ile gönderilemedi.'];
     }
 
+    $ttError = null;
     if ($activeProvider === 'TURK_TELEKOM' || !$activeProvider) {
+        error_log('SMS dispatch attempting provider: TURK_TELEKOM');
         $res = sendTurkTelekomSms($phone, $message, $ttSettings);
         if ($res['success']) {
             return $res;
         }
+        $ttError = $res;
     }
 
     // NETGSM Eklentisi (Yedek / Fallback Sağlayıcı)
     $netgsm = $pdo->query("SELECT * FROM netgsm_settings WHERE is_active = 1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
     if ($netgsm) {
-        return sendNetgsmSms($phone, $message, $netgsm);
+        error_log('SMS dispatch falling back to provider: NETGSM');
+        $netRes = sendNetgsmSms($phone, $message, $netgsm);
+        if ($netRes['success']) {
+            return $netRes;
+        }
+        if ($ttError !== null) {
+            $netRes['message'] = ($ttError['message'] ?? 'Türk Telekom hatası') . ' | Yedek: ' . ($netRes['message'] ?? 'NETGSM hatası');
+        }
+        return $netRes;
+    }
+
+    if ($ttError !== null) {
+        return $ttError;
     }
 
     return [
@@ -387,6 +429,7 @@ $superAdminRoutes = [
     'POST /api/campaigns/toggle',
     'POST /api/feature-flags',
     'POST /api/customer/award-points',
+    'GET /api/dashboard/metrics',
 ];
 $staffRoutes = [
     'GET /api/orders',
@@ -614,10 +657,27 @@ if ($uri === '/api/auth/send-otp' && $method === 'POST') {
         jsonResponse(['success' => false, 'message' => 'Hesabınız girişe açık değil.'], 403);
     }
 
+    $clientIp = substr(trim((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown')), 0, 64);
+    $ipWindow = date('Y-m-d H:i:s', time() - 600);
+    $ipStmt = $pdo->prepare("SELECT COUNT(*) FROM otp_rate_limits WHERE ip_address = ? AND created_at >= ?");
+    $ipStmt->execute([$clientIp, $ipWindow]);
+    if ((int)$ipStmt->fetchColumn() >= 5) {
+        jsonResponse(['success' => false, 'message' => 'Çok fazla doğrulama kodu isteği. Lütfen 10 dakika sonra tekrar deneyin.'], 429);
+    }
+
+    $phoneWindow = date('Y-m-d H:i:s', time() - 3600);
+    $phoneRateStmt = $pdo->prepare("SELECT COUNT(*) FROM otp_rate_limits WHERE phone = ? AND created_at >= ?");
+    $phoneRateStmt->execute([$fullPhone, $phoneWindow]);
+    if ((int)$phoneRateStmt->fetchColumn() >= 5) {
+        jsonResponse(['success' => false, 'message' => 'Bu numara için saatlik kod limiti aşıldı. Lütfen daha sonra tekrar deneyin.'], 429);
+    }
+
     $lastSentAt = $user['otp_last_sent_at'] ?? null;
     if ($lastSentAt && strtotime((string)$lastSentAt) > time() - 60) {
         jsonResponse(['success' => false, 'message' => 'Yeni kod istemeden önce 60 saniye bekleyin.'], 429);
     }
+
+    $pdo->prepare("INSERT INTO otp_rate_limits (ip_address, phone) VALUES (?, ?)")->execute([$clientIp, $fullPhone]);
 
     $reviewCode = appReviewOtpFor($fullPhone, $requestedRole);
     $code = $reviewCode ?? (string) random_int(100000, 999999);
@@ -888,26 +948,21 @@ if ($uri === '/api/auth/verify-otp' && $method === 'POST') {
 
     if (!empty($user['otp_expires_at'])) {
         $exp = strtotime((string)$user['otp_expires_at']);
-        if ($exp && $exp <= time() && $code !== '111111') {
+        if ($exp && $exp <= time()) {
             $pdo->prepare("UPDATE users SET otp_code = NULL, otp_expires_at = NULL, otp_attempts = 0 WHERE id = ?")->execute([$user['id']]);
             jsonResponse(['success' => false, 'message' => 'Doğrulama kodunun süresi doldu.'], 401);
         }
     }
 
     $attempts = (int)($user['otp_attempts'] ?? 0);
-    if ($attempts >= 10 && $code !== '111111') {
+    if ($attempts >= 10) {
         $pdo->prepare("UPDATE users SET otp_code = NULL, otp_expires_at = NULL, otp_attempts = 0 WHERE id = ?")->execute([$user['id']]);
         jsonResponse(['success' => false, 'message' => 'Çok fazla hatalı deneme. Yeni kod isteyin.'], 429);
     }
 
     $storedCode = (string)($user['otp_code'] ?? '');
     $isCodeValid = false;
-    if ($storedCode !== '') {
-        if ($storedCode === $code || password_verify($code, $storedCode)) {
-            $isCodeValid = true;
-        }
-    }
-    if ($code === '111111') {
+    if ($storedCode !== '' && password_verify($code, $storedCode)) {
         $isCodeValid = true;
     }
 
@@ -1824,6 +1879,334 @@ if ($uri === '/api/couriers' && $method === 'GET') {
     $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     echo json_encode(['success' => true, 'data' => array_map('safeCourier', $couriers)]);
     exit;
+}
+
+// ─────────────────────────────────────────────────────────────
+// EK YÖNETİCİ & CMS UÇ NOKTALARI (İstemci Uyumluluğu)
+// ─────────────────────────────────────────────────────────────
+function readCmsDocument($pdo, $docKey) {
+    $stmt = $pdo->prepare("SELECT payload_json FROM cms_documents WHERE doc_key = ?");
+    $stmt->execute([$docKey]);
+    $raw = $stmt->fetchColumn();
+    if (!$raw) return null;
+    $decoded = json_decode((string)$raw, true);
+    return is_array($decoded) ? $decoded : null;
+}
+
+function writeCmsDocument($pdo, $docKey, $payload) {
+    $json = json_encode($payload, JSON_UNESCAPED_UNICODE);
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM cms_documents WHERE doc_key = ?");
+    $stmt->execute([$docKey]);
+    if ((int)$stmt->fetchColumn() > 0) {
+        $upd = $pdo->prepare("UPDATE cms_documents SET payload_json = ?, updated_at = CURRENT_TIMESTAMP WHERE doc_key = ?");
+        $upd->execute([$json, $docKey]);
+    } else {
+        $ins = $pdo->prepare("INSERT INTO cms_documents (doc_key, payload_json) VALUES (?, ?)");
+        $ins->execute([$docKey, $json]);
+    }
+}
+
+if ($uri === '/api/admin/products' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    $name = trim((string)($input['name'] ?? ''));
+    if ($name === '') jsonResponse(['success' => false, 'message' => 'Ürün adı zorunludur.'], 422);
+    $category = trim((string)($input['category'] ?? 'Genel'));
+    $subBrand = trim((string)($input['sub_brand'] ?? 'Tema'));
+    $barcode = trim((string)($input['barcode'] ?? ('869' . random_int(100000000, 999999999))));
+    $basePrice = (float)($input['base_price'] ?? 0);
+    $originalPrice = (float)($input['original_price'] ?? $basePrice);
+    $stock = (int)($input['stock'] ?? 0);
+    $status = $stock <= 0 ? 'Tükendi' : ($stock <= 10 ? 'Kritik Stok' : 'Stokta');
+    $image = trim((string)($input['image'] ?? ''));
+    $unit = trim((string)($input['unit'] ?? 'Adet'));
+
+    if ($id > 0) {
+        $check = $pdo->prepare("SELECT id FROM products WHERE id = ?");
+        $check->execute([$id]);
+        if ($check->fetchColumn()) {
+            $stmt = $pdo->prepare("UPDATE products SET name = ?, category = ?, sub_brand = ?, base_price = ?, original_price = ?, stock = ?, status = ?, image = ?, unit = ? WHERE id = ?");
+            $stmt->execute([$name, $category, $subBrand, $basePrice, $originalPrice, $stock, $status, $image, $unit, $id]);
+            jsonResponse(['success' => true, 'message' => 'Ürün güncellendi.']);
+        }
+    }
+    $stmt = $pdo->prepare("INSERT INTO products (name, category, sub_brand, barcode, base_price, original_price, stock, status, image, unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$name, $category, $subBrand, $barcode, $basePrice, $originalPrice, $stock, $status, $image, $unit]);
+    jsonResponse(['success' => true, 'message' => 'Ürün eklendi.', 'id' => (int)$pdo->lastInsertId()]);
+}
+
+if ($uri === '/api/admin/products/delete' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    if ($id <= 0) jsonResponse(['success' => false, 'message' => 'Geçersiz ürün ID.'], 422);
+    $pdo->prepare("DELETE FROM products WHERE id = ?")->execute([$id]);
+    jsonResponse(['success' => true, 'message' => 'Ürün silindi.']);
+}
+
+if ($uri === '/api/admin/campaigns' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    $title = trim((string)($input['title'] ?? ''));
+    if ($title === '') jsonResponse(['success' => false, 'message' => 'Kampanya başlığı zorunludur.'], 422);
+    $badge = trim((string)($input['badge'] ?? 'FIRSAT'));
+    $code = trim((string)($input['code'] ?? ''));
+    $desc = trim((string)($input['description'] ?? ''));
+    $image = trim((string)($input['image'] ?? ''));
+    $isActive = !empty($input['is_active']) ? 1 : 0;
+
+    if ($id > 0) {
+        $check = $pdo->prepare("SELECT id FROM campaigns WHERE id = ?");
+        $check->execute([$id]);
+        if ($check->fetchColumn()) {
+            $stmt = $pdo->prepare("UPDATE campaigns SET title = ?, badge = ?, code = ?, description = ?, image = ?, is_active = ? WHERE id = ?");
+            $stmt->execute([$title, $badge, $code, $desc, $image, $isActive, $id]);
+            jsonResponse(['success' => true, 'message' => 'Kampanya güncellendi.']);
+        }
+    }
+    $stmt = $pdo->prepare("INSERT INTO campaigns (title, badge, code, description, image, is_active) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$title, $badge, $code, $desc, $image, $isActive]);
+    jsonResponse(['success' => true, 'message' => 'Kampanya eklendi.', 'id' => (int)$pdo->lastInsertId()]);
+}
+
+if ($uri === '/api/admin/campaigns/delete' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    if ($id <= 0) jsonResponse(['success' => false, 'message' => 'Geçersiz kampanya ID.'], 422);
+    $pdo->prepare("DELETE FROM campaigns WHERE id = ?")->execute([$id]);
+    jsonResponse(['success' => true, 'message' => 'Kampanya silindi.']);
+}
+
+if ($uri === '/api/admin/branches' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    $name = trim((string)($input['name'] ?? ''));
+    if ($name === '') jsonResponse(['success' => false, 'message' => 'Şube adı zorunludur.'], 422);
+    $code = trim((string)($input['code'] ?? ('SUB-' . random_int(100, 999))));
+    $city = trim((string)($input['city_district'] ?? 'Erzurum'));
+    $address = trim((string)($input['address'] ?? ''));
+    $phone = trim((string)($input['phone'] ?? ''));
+    $isActive = !empty($input['is_active']) ? 1 : 0;
+
+    if ($id > 0) {
+        $check = $pdo->prepare("SELECT id FROM branches WHERE id = ?");
+        $check->execute([$id]);
+        if ($check->fetchColumn()) {
+            $stmt = $pdo->prepare("UPDATE branches SET name = ?, code = ?, city_district = ?, address = ?, phone = ?, is_active = ? WHERE id = ?");
+            $stmt->execute([$name, $code, $city, $address, $phone, $isActive, $id]);
+            jsonResponse(['success' => true, 'message' => 'Şube güncellendi.']);
+        }
+    }
+    $stmt = $pdo->prepare("INSERT INTO branches (code, name, city_district, address, phone, is_active) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$code, $name, $city, $address, $phone, $isActive]);
+    jsonResponse(['success' => true, 'message' => 'Şube eklendi.', 'id' => (int)$pdo->lastInsertId()]);
+}
+
+if ($uri === '/api/admin/branches/delete' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    if ($id <= 0) jsonResponse(['success' => false, 'message' => 'Geçersiz şube ID.'], 422);
+    $pdo->prepare("UPDATE branches SET is_active = 0 WHERE id = ?")->execute([$id]);
+    jsonResponse(['success' => true, 'message' => 'Şube pasife alındı.']);
+}
+
+if (preg_match('#^/api/admin/applications/(\d+)/status$#', $uri, $appMatches) && $method === 'PATCH') {
+    $appId = (int)$appMatches[1];
+    $input = getJsonInput();
+    $newStatus = trim((string)($input['status'] ?? ''));
+    $allowedStatuses = ['Beklemede', 'İncelendi', 'Mülakata Çağrıldı', 'Kabul Edildi', 'Reddedildi'];
+    if (!in_array($newStatus, $allowedStatuses, true)) {
+        jsonResponse(['success' => false, 'message' => 'Geçersiz başvuru durumu.'], 422);
+    }
+    $stmt = $pdo->prepare("UPDATE applications SET status = ? WHERE id = ?");
+    $stmt->execute([$newStatus, $appId]);
+    jsonResponse(['success' => true, 'message' => 'Başvuru durumu güncellendi.']);
+}
+
+if ($uri === '/api/admin/external-applications/delete' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    if ($id <= 0) jsonResponse(['success' => false, 'message' => 'Geçersiz başvuru ID.'], 422);
+    $pdo->prepare("DELETE FROM applications WHERE id = ?")->execute([$id]);
+    jsonResponse(['success' => true, 'message' => 'Başvuru silindi.']);
+}
+
+if ($uri === '/api/open-positions' && $method === 'GET') {
+    $doc = readCmsDocument($pdo, 'open_positions') ?? [];
+    jsonResponse(['success' => true, 'data' => $doc]);
+}
+if ($uri === '/api/admin/open-positions' && $method === 'POST') {
+    $input = getJsonInput();
+    $list = readCmsDocument($pdo, 'open_positions') ?? [];
+    $id = (int)($input['id'] ?? 0);
+    if ($id <= 0) $input['id'] = (int)(microtime(true) * 1000) % 1000000;
+    $list = array_values(array_filter($list, fn($e) => (int)($e['id'] ?? 0) !== (int)$input['id']));
+    array_unshift($list, $input);
+    writeCmsDocument($pdo, 'open_positions', $list);
+    jsonResponse(['success' => true, 'message' => 'Açık pozisyon kaydedildi.']);
+}
+if ($uri === '/api/admin/open-positions/delete' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    $list = readCmsDocument($pdo, 'open_positions') ?? [];
+    $list = array_values(array_filter($list, fn($e) => (int)($e['id'] ?? 0) !== $id));
+    writeCmsDocument($pdo, 'open_positions', $list);
+    jsonResponse(['success' => true, 'message' => 'Açık pozisyon silindi.']);
+}
+
+if ($uri === '/api/admin/orders/delete' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    if ($id <= 0) jsonResponse(['success' => false, 'message' => 'Geçersiz sipariş ID.'], 422);
+    $pdo->prepare("DELETE FROM orders WHERE id = ?")->execute([$id]);
+    jsonResponse(['success' => true, 'message' => 'Sipariş silindi.']);
+}
+
+if ($uri === '/api/admin/couriers' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    $name = trim((string)($input['name'] ?? ''));
+    if ($name === '') jsonResponse(['success' => false, 'message' => 'Kurye adı zorunludur.'], 422);
+    $phone = normalizeTurkishPhone((string)($input['phone'] ?? ''));
+    if ($phone === null) jsonResponse(['success' => false, 'message' => 'Geçerli bir telefon numarası girin.'], 422);
+    $vehicle = trim((string)($input['vehicle'] ?? ($input['vehicle_type'] ?? 'Motosiklet')));
+    $branchId = (int)($input['branch_id'] ?? 1);
+    $rawStatus = trim((string)($input['status'] ?? 'AKTIF'));
+    $dbStatus = strtoupper($rawStatus) === 'PASİF' || strtoupper($rawStatus) === 'PASIF' ? 'PASIF' : 'AKTIF';
+
+    if ($id > 0) {
+        $check = $pdo->prepare("SELECT id FROM users WHERE id = ? AND role = 'Courier'");
+        $check->execute([$id]);
+        if ($check->fetchColumn()) {
+            $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ?, vehicle_type = ?, branch_id = ?, status = ? WHERE id = ? AND role = 'Courier'");
+            $stmt->execute([$name, $phone, $vehicle, $branchId > 0 ? $branchId : null, $dbStatus, $id]);
+            jsonResponse(['success' => true, 'message' => 'Kurye güncellendi.']);
+        }
+    }
+    $dup = $pdo->prepare("SELECT id FROM users WHERE phone = ?");
+    $dup->execute([$phone]);
+    $existingId = $dup->fetchColumn();
+    if ($existingId) {
+        $stmt = $pdo->prepare("UPDATE users SET role = 'Courier', name = ?, vehicle_type = ?, branch_id = ?, status = ? WHERE id = ?");
+        $stmt->execute([$name, $vehicle, $branchId > 0 ? $branchId : null, $dbStatus, $existingId]);
+        jsonResponse(['success' => true, 'message' => 'Kurye kaydedildi.', 'id' => (int)$existingId]);
+    }
+    $stmt = $pdo->prepare("INSERT INTO users (phone, role, name, vehicle_type, branch_id, status) VALUES (?, 'Courier', ?, ?, ?, ?)");
+    $stmt->execute([$phone, $name, $vehicle, $branchId > 0 ? $branchId : null, $dbStatus]);
+    jsonResponse(['success' => true, 'message' => 'Kurye eklendi.', 'id' => (int)$pdo->lastInsertId()]);
+}
+
+if ($uri === '/api/admin/couriers/delete' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    if ($id <= 0) jsonResponse(['success' => false, 'message' => 'Geçersiz kurye ID.'], 422);
+    $pdo->prepare("UPDATE users SET status = 'PASIF' WHERE id = ? AND role = 'Courier'")->execute([$id]);
+    jsonResponse(['success' => true, 'message' => 'Kurye pasife alındı.']);
+}
+
+if ($uri === '/api/kasaphane/tracking' && $method === 'GET') {
+    $doc = readCmsDocument($pdo, 'kasaphane_tracking');
+    if (is_array($doc) && array_key_exists('records', $doc) && is_array($doc['records'])) {
+        $doc = $doc['records'];
+    }
+    jsonResponse(['success' => true, 'data' => is_array($doc) ? $doc : []]);
+}
+if ($uri === '/api/admin/kasaphane/tracking' && $method === 'POST') {
+    $input = getJsonInput();
+    $list = readCmsDocument($pdo, 'kasaphane_tracking') ?? [];
+    if (array_key_exists('records', $list) && is_array($list['records'])) {
+        $list = $list['records'];
+    }
+    $id = (int)($input['id'] ?? 0);
+    if ($id <= 0) $input['id'] = (int)(microtime(true) * 1000) % 1000000;
+    $list = array_values(array_filter($list, fn($e) => (int)($e['id'] ?? 0) !== (int)$input['id']));
+    array_unshift($list, $input);
+    writeCmsDocument($pdo, 'kasaphane_tracking', $list);
+    jsonResponse(['success' => true, 'message' => 'Kasaphane verisi kaydedildi.']);
+}
+if ($uri === '/api/admin/kasaphane/tracking/delete' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    $list = readCmsDocument($pdo, 'kasaphane_tracking') ?? [];
+    if (array_key_exists('records', $list) && is_array($list['records'])) {
+        $list = $list['records'];
+    }
+    $list = array_values(array_filter($list, fn($e) => (int)($e['id'] ?? 0) !== $id));
+    writeCmsDocument($pdo, 'kasaphane_tracking', $list);
+    jsonResponse(['success' => true, 'message' => 'Kasaphane kaydı silindi.']);
+}
+
+if ($uri === '/api/kasaphane/media' && $method === 'GET') {
+    $doc = readCmsDocument($pdo, 'kasaphane_media') ?? [];
+    jsonResponse(['success' => true, 'data' => $doc]);
+}
+if ($uri === '/api/admin/kasaphane/media' && $method === 'POST') {
+    $input = getJsonInput();
+    $list = readCmsDocument($pdo, 'kasaphane_media') ?? [];
+    $id = (int)($input['id'] ?? 0);
+    if ($id <= 0) $input['id'] = (int)(microtime(true) * 1000) % 1000000;
+    $list = array_values(array_filter($list, fn($e) => (int)($e['id'] ?? 0) !== (int)$input['id']));
+    array_unshift($list, $input);
+    writeCmsDocument($pdo, 'kasaphane_media', $list);
+    jsonResponse(['success' => true, 'message' => 'Kasaphane medyası kaydedildi.']);
+}
+if ($uri === '/api/admin/kasaphane/media/delete' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    $list = readCmsDocument($pdo, 'kasaphane_media') ?? [];
+    $list = array_values(array_filter($list, fn($e) => (int)($e['id'] ?? 0) !== $id));
+    writeCmsDocument($pdo, 'kasaphane_media', $list);
+    jsonResponse(['success' => true, 'message' => 'Kasaphane medyası silindi.']);
+}
+
+if ($uri === '/api/corporate/entities' && $method === 'GET') {
+    $doc = readCmsDocument($pdo, 'corporate_entities') ?? [];
+    jsonResponse(['success' => true, 'data' => $doc]);
+}
+if ($uri === '/api/admin/corporate/entities' && $method === 'POST') {
+    $input = getJsonInput();
+    $list = readCmsDocument($pdo, 'corporate_entities') ?? [];
+    $id = (int)($input['id'] ?? 0);
+    if ($id <= 0) $input['id'] = (int)(microtime(true) * 1000) % 1000000;
+    $list = array_values(array_filter($list, fn($e) => (int)($e['id'] ?? 0) !== (int)$input['id']));
+    array_unshift($list, $input);
+    writeCmsDocument($pdo, 'corporate_entities', $list);
+    jsonResponse(['success' => true, 'message' => 'Kurumsal kayıt kaydedildi.']);
+}
+if ($uri === '/api/admin/corporate/entities/delete' && $method === 'POST') {
+    $input = getJsonInput();
+    $id = (int)($input['id'] ?? 0);
+    $list = readCmsDocument($pdo, 'corporate_entities') ?? [];
+    $list = array_values(array_filter($list, fn($e) => (int)($e['id'] ?? 0) !== $id));
+    writeCmsDocument($pdo, 'corporate_entities', $list);
+    jsonResponse(['success' => true, 'message' => 'Kurumsal kayıt silindi.']);
+}
+
+if (($uri === '/api/subdomains' || $uri === '/api/admin/subdomains') && $method === 'GET') {
+    $doc = readCmsDocument($pdo, 'subdomains') ?? [];
+    jsonResponse(['success' => true, 'data' => $doc]);
+}
+if ($uri === '/api/admin/subdomains' && $method === 'POST') {
+    $input = getJsonInput();
+    $list = readCmsDocument($pdo, 'subdomains') ?? [];
+    $slug = strtolower(trim((string)($input['subdomain'] ?? '')));
+    if ($slug === '') jsonResponse(['success' => false, 'message' => 'Subdomain slug zorunludur.'], 422);
+    $list = array_values(array_filter($list, fn($e) => strtolower((string)($e['subdomain'] ?? '')) !== $slug));
+    $list[] = $input;
+    writeCmsDocument($pdo, 'subdomains', $list);
+    jsonResponse(['success' => true, 'message' => 'Subdomain sayfası kaydedildi.']);
+}
+if ($uri === '/api/admin/subdomains/delete' && $method === 'POST') {
+    $input = getJsonInput();
+    $slug = strtolower(trim((string)($input['subdomain'] ?? '')));
+    $id = (int)($input['id'] ?? 0);
+    $list = readCmsDocument($pdo, 'subdomains') ?? [];
+    $list = array_values(array_filter($list, function ($e) use ($slug, $id) {
+        if ($slug !== '' && strtolower((string)($e['subdomain'] ?? '')) === $slug) return false;
+        if ($id > 0 && (int)($e['id'] ?? 0) === $id) return false;
+        return true;
+    }));
+    writeCmsDocument($pdo, 'subdomains', $list);
+    jsonResponse(['success' => true, 'message' => 'Subdomain sayfası silindi.']);
 }
 
 jsonResponse(['success' => false, 'message' => 'API uç noktası bulunamadı.'], 404);

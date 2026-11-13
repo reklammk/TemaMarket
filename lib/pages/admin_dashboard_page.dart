@@ -282,7 +282,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
         backgroundColor: const Color(0xFF0F172A),
         foregroundColor: Colors.white,
         title: const Text(
-          'temamarket.com Yönetim Paneli',
+          'temasan.com Yönetim Paneli',
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
         actions: [
@@ -461,7 +461,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'kasap.temamarket.com, sarkuteri.temamarket.com gibi tüm subdomain sayfalarını canlı önizleme üzerinde sürükleyip bırakarak tasarlayın.',
+                            'kasap.temasan.com, sarkuteri.temasan.com gibi tüm subdomain sayfalarını canlı önizleme üzerinde sürükleyip bırakarak tasarlayın.',
                             style:
                                 TextStyle(color: Colors.white70, fontSize: 12),
                           ),
@@ -744,7 +744,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
 
   void _showLoyaltyRulesDialog() {
     final earnCtrl = TextEditingController(
-      text: '${(_asDouble(_loyaltyRules['earn_rate']) * 100).toStringAsFixed(0)}',
+      text: (_asDouble(_loyaltyRules['earn_rate']) * 100).toStringAsFixed(0),
     );
     final burnCtrl = TextEditingController(
       text: _asDouble(_loyaltyRules['burn_rate'] ?? 1.0).toStringAsFixed(2),
@@ -1639,7 +1639,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
-                  value: selectedCat,
+                  initialValue: selectedCat,
                   decoration:
                       const InputDecoration(labelText: 'Reyon / Kategori'),
                   items: categories
@@ -1902,7 +1902,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
     }
 
     final sub = page['subdomain']?.toString() ?? 'kasap';
-    final domain = page['domain']?.toString() ?? '$sub.temamarket.com';
+    final domain = page['domain']?.toString() ?? '$sub.temasan.com';
 
     return Column(
       children: [
@@ -1936,7 +1936,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                               padding: const EdgeInsets.only(right: 8),
                               child: ChoiceChip(
                                 label: Text(
-                                  '${_subdomainPages[i]['title']} (${_subdomainPages[i]['subdomain']}.temamarket.com)',
+                                  '${_subdomainPages[i]['title']} (${_subdomainPages[i]['subdomain']}.temasan.com)',
                                   style: TextStyle(
                                     color: _selectedSubdomainIndex == i
                                         ? Colors.white
@@ -2424,7 +2424,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: sections.length,
-          onReorder: _reorderSections,
+          onReorderItem: (oldIndex, newIndex) => _reorderSections(
+            oldIndex,
+            newIndex >= oldIndex ? newIndex + 1 : newIndex,
+          ),
           itemBuilder: (ctx, idx) {
             final sec = sections[idx];
             final secId = sec['id']?.toString() ?? 'sec_$idx';
@@ -2733,7 +2736,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
           const SizedBox(height: 10),
           TextFormField(
             key: ValueKey('sec_phone_${sec['id']}'),
-            initialValue: sec['phone']?.toString() ?? '0850 300 00 00',
+            initialValue: sec['phone']?.toString() ?? '0 (442) 329 06 08',
             decoration: const InputDecoration(labelText: 'İletişim Telefonu'),
             onChanged: (v) {
               setState(() {
@@ -2746,7 +2749,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
           const SizedBox(height: 10),
           TextFormField(
             key: ValueKey('sec_wa_${sec['id']}'),
-            initialValue: sec['whatsapp']?.toString() ?? '905300000000',
+            initialValue: sec['whatsapp']?.toString() ?? '904423290608',
             decoration:
                 const InputDecoration(labelText: 'WhatsApp Numarası'),
             onChanged: (v) {
@@ -2809,20 +2812,21 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
           decoration: const InputDecoration(
             labelText: 'Subdomain Adresi *',
             prefixText: 'https://',
-            suffixText: '.temamarket.com',
+            suffixText: '.temasan.com',
           ),
           onChanged: (v) {
             final clean =
                 v.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9\-]'), '');
             setState(() {
               page['subdomain'] = clean;
-              page['domain'] = '$clean.temamarket.com';
+              page['domain'] = '$clean.temasan.com';
             });
           },
         ),
         const SizedBox(height: 10),
         DropdownButtonFormField<String>(
-          value: currentCat,
+          key: ValueKey('pg_cat_${page['id']}_$currentCat'),
+          initialValue: currentCat,
           decoration:
               const InputDecoration(labelText: 'Eşleşen Reyon / Kategori'),
           items: categories
@@ -3324,7 +3328,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                       labelText: 'Subdomain Adı *',
                       hintText: 'Örn: manav, pastane, toptan',
                       helperText:
-                          'Adres: https://${subCtrl.text.trim().isEmpty ? '...' : subCtrl.text.trim().toLowerCase()}.temamarket.com',
+                          'Adres: https://${subCtrl.text.trim().isEmpty ? '...' : subCtrl.text.trim().toLowerCase()}.temasan.com',
                     ),
                     onChanged: (_) => setDlgState(() {}),
                   ),
@@ -3376,7 +3380,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                         if (isEdit) 'id': existing['id'],
                         'title': title,
                         'subdomain': sub,
-                        'domain': '$sub.temamarket.com',
+                        'domain': '$sub.temasan.com',
                         'category': catCtrl.text.trim(),
                         'slogan': sloganCtrl.text.trim(),
                         'description': descCtrl.text.trim(),
@@ -3712,7 +3716,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: [
+                  initialValue: [
                     'Beklemede',
                     'İncelendi',
                     'Mülakata Çağrıldı',
@@ -3863,9 +3867,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
           children: [
-            Card(
-              color: const Color(0xFF991B1B),
-              child: const Padding(
+            const Card(
+              color: Color(0xFF991B1B),
+              child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Row(
                   children: [
@@ -4132,7 +4136,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: status,
+                  initialValue: status,
                   decoration: const InputDecoration(labelText: 'Sevk Durumu'),
                   items: validStatuses
                       .map((s) => DropdownMenuItem(value: s, child: Text(s)))
@@ -4202,7 +4206,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: type,
+                  initialValue: type,
                   decoration: const InputDecoration(labelText: 'Medya Türü'),
                   items: const [
                     DropdownMenuItem(value: 'Video', child: Text('Video')),
@@ -4264,9 +4268,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
           children: [
-            Card(
-              color: const Color(0xFF1E293B),
-              child: const Padding(
+            const Card(
+              color: Color(0xFF1E293B),
+              child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Row(
                   children: [
@@ -4390,7 +4394,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                             InkWell(
                               onTap: () => launchUrl(Uri.parse(
                                   corp['website']?.toString() ??
-                                      'https://temamarket.com')),
+                                      'https://temasan.com')),
                               child: Text(
                                 corp['website']?.toString() ?? '-',
                                 style: const TextStyle(
@@ -4430,7 +4434,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
         text: existing?['description']?.toString() ?? '');
     final webController = TextEditingController(
         text: existing?['website']?.toString() ??
-            'https://insaat.temamarket.com');
+            'https://insaat.temasan.com');
     final phoneController = TextEditingController(
         text: existing?['contact']?.toString() ?? '0442 222 00 00');
 

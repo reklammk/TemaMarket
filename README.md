@@ -1,7 +1,7 @@
 # TEMA Sanal Market
 
 Flutter tabanlı müşteri, bayi, kurye ve yönetici uygulaması. Uygulama veriyi
-`https://temasanalmarket.com/api` adresindeki API'den alır; ürün, sipariş,
+`https://temasan.com/api` adresindeki API'den alır; ürün, sipariş,
 stok, kurye ve yetki bilgileri istemci içinde örnek veri olarak üretilmez.
 
 ## Gereksinimler
@@ -32,7 +32,7 @@ HTTPS kullanmalıdır:
 
 ```sh
 flutter build appbundle --release \
-  --dart-define=API_BASE_URL=https://temasanalmarket.com/api
+  --dart-define=API_BASE_URL=https://temasan.com/api
 ```
 
 ## Backend yapılandırması
@@ -43,7 +43,7 @@ bilgiler kaynak koda veya Git'e eklenmemelidir.
 
 ```text
 APP_ENV=production
-APP_ALLOWED_ORIGINS=https://temasanalmarket.com,https://www.temasanalmarket.com
+APP_ALLOWED_ORIGINS=https://temasan.com,https://www.temasan.com
 DB_TYPE=mysql
 DB_HOST=localhost
 DB_NAME=...
