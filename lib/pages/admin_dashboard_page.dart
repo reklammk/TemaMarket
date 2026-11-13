@@ -2424,9 +2424,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: sections.length,
-          onReorderItem: (oldIndex, newIndex) => _reorderSections(
+          // ignore: deprecated_member_use
+          onReorder: (oldIndex, newIndex) => _reorderSections(
             oldIndex,
-            newIndex >= oldIndex ? newIndex + 1 : newIndex,
+            newIndex,
           ),
           itemBuilder: (ctx, idx) {
             final sec = sections[idx];
